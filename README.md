@@ -1,50 +1,73 @@
-# Welcome to your Expo app 👋
+# 📊 Cook & Helper Attendance Tracker
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A premium, easy-to-use React Native application to track attendance and calculate salaries for domestic helpers (Cook, Maid, Milkman, etc.).
 
-## Get started
+## ✨ Features
 
-1. Install dependencies
+- **👥 Multi-Worker Support**: seamlessly switch between different profiles (Cook, Maid, Milk).
+- **📝 Tri-State Attendance**: Mark shifts as **Present** (Green), **Absent** (Red), or leave as **Unmarked** (Gray).
+- **☀️/🌙 Shift Tracking**: Track Morning and Evening shifts separately.
+- **⚙️ Configurable Shifts**: Enable/Disable specific shifts per worker (e.g., Milkman only comes in the Morning).
+- **💰 Smart Salary Calculation**: 
+  - Automatically excludes Sundays from working days.
+  - Calculates pay based on *Completed Shifts* vs *Total Possible Shifts*.
+  - Helper logic: 1 Shift = Full Pay (if only 1 shift enabled), 2 Shifts = Split Pay.
+- **📅 Visual Calendar**: View monthly attendance at a glance with color-coded indicators.
+- **💾 Offline Persistence**: All data is saved locally on the device.
 
-   ```bash
-   npm install
-   ```
+## 📱 Screenshots
 
-2. Start the app
+| Dashboard | Calendar | Payments & Settings |
+|:---:|:---:|:---:|
+| *(Add Dashboard Screenshot)* | *(Add Calendar Screenshot)* | *(Add Payments Screenshot)* |
 
-   ```bash
-   npx expo start
-   ```
+## 🛠 Tech Stack
 
-In the output, you'll find options to open the app in a
+- **Framework**: React Native (Expo SDK 49)
+- **Language**: JavaScript / React
+- **Navigation**: React Navigation v6 (Bottom Tabs)
+- **Storage**: @react-native-async-storage/async-storage
+- **UI Components**: react-native-calendars, react-native-safe-area-context, react-native-svg
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## 🚀 Getting Started
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+### Prerequisites
+- Node.js (v16+)
+- npm or yarn
 
-## Get a fresh project
+### Installation
 
-When you're ready, run:
+1.  **Clone the repository**:
+    ```bash
+    git clone https://github.com/rahulanand2690/CookTracker.git
+    cd CookTracker
+    ```
 
-```bash
-npm run reset-project
-```
+2.  **Install dependencies**:
+    ```bash
+    npm install
+    ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+3.  **Start the app**:
+    ```bash
+    npx expo start
+    ```
 
-## Learn more
+4.  **Run on Device**:
+    - Download **Expo Go** from Play Store (Android) or App Store (iOS).
+    - Scan the QR code shown in the terminal.
 
-To learn more about developing your project with Expo, look at the following resources:
+## 📖 Usage Guide
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+1.  **Select a Worker**: Tap the chips (Cook/Maid/Milk) on the top of the Home screen.
+2.  **Mark Attendance**:
+    - Tap the **Sun** (Morning) or **Moon** (Evening) cards to toggle status.
+    - Status loops: `Unmarked` -> `Present` -> `Absent`.
+3.  **Edit Calendar**: Go to the **Calendar** tab and tap any date to edit past attendance.
+4.  **Configure Salary & Shifts**:
+    - Go to **Payments**.
+    - Set the **Base Salary** (e.g., ₹6000).
+    - Toggle Morning/Evening switches to match the worker's schedule.
 
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## 📄 License
+MIT
