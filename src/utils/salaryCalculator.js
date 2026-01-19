@@ -10,7 +10,9 @@ export const calculateSalary = (attendance, year, month, shiftsConfig, workerTyp
         }
     }
 
-    const workingDays = daysInMonth - sundays;
+    // specific Sunday logic
+    const shouldExcludeSundays = !settings.includeSundays;
+    const workingDays = daysInMonth - (shouldExcludeSundays ? sundays : 0);
 
     let morningCount = 0;
     let eveningCount = 0;

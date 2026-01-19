@@ -28,12 +28,57 @@ const HomeScreen = () => {
     };
 
     const updateMilkLimit = (shift, change) => {
-        const currentQty = typeof todayStatus[shift] === 'number'
-            ? todayStatus[shift]
-            : activeWorker.defaultLitre; // Start from default if currently generic 'true' or undefined
+        let currentQty;
+        // If it's a number, use it.
+        if (typeof todayStatus[shift] === 'number') {
+            currentQty = todayStatus[shift];
+        } else if (todayStatus[shift] === true) {
+            // If marked 'true' (Present), treat as default litre
+            currentQty = activeWorker.defaultLitre;
+        } else {
+            // If undefined (not marked) or false (Absent)
+            // We want the *first* click (especially +) to start at defaultLitre
+            // But if we are adding 0.25 to "nothing", logical expectations:
+            // Option A: 0 + 0.25 = 0.25
+            // Option B: Jump to Default (e.g. 1.0)
+            // User req: "start with default Daily Litres ... instead of 0 litres"
+
+            // If we assume "start with" means the base value before adding 'change'
+            // If nothing is marked, base is 0. So 0 + 0.25 = 0.25. 
+            // But user wants "start with default".
+            // Maybe they mean: If I click '+', it should become (Default + 0.25)? 
+            // Or if I click '+', it becomes Default immediately? -> No, that's what 'Present' toggle is for.
+            // Likely: The "starting point" is Default. 
+            // So if Default is 1L.
+            // If I have nothing, and click '+', it becomes 1.25L ?? (1L default + 0.25)
+            // Or does it become 1L? 
+            // Let's implement: If Unmarked/Absent -> Treat 'current' as Default Litre.
+            currentQty = 0;
+        }
+
+        // Wait, if I treat 'current' as Default (1L), then 1L + 0.25 = 1.25L.
+        // It skips 0.25, 0.5, 0.75... 
+        // Re-reading: "litres should start with default Daily Litres ... instead of 0 litres"
+        // This implies the standard daily delivery is X. Adjustments are from X.
+        // So yes, if I have nothing recorded, assume I got the usual (Default) and want to adjust it.
+
+        if (typeof todayStatus[shift] !== 'number' && todayStatus[shift] !== true) {
+            // First interaction on an empty/absent shift
+            // "Start with default"
+            currentQty = activeWorker.defaultLitre;
+
+            // BUT, if I just clicked '+', do I want (Default + 0.25) or just (Default)?
+            // Usually controls are +/-. 
+            // If the display shows "0 L" (calculated), and I click +, it should go to 0.25.
+            // But user says "start with Default ... instead of 0".
+            // So display should probably show Default initially? No, that would be confusing if attendance is unmarked.
+
+            // INTERPRETATION: When I interact with the +/- controls, Initialize at Default.
+            // So: New Value = Default + Change.
+        }
 
         let newQty = currentQty + change;
-        if (newQty < 0) newQty = 0; // Minimum 0
+        if (newQty < 0) newQty = 0;
 
         const newStatus = { ...todayStatus, [shift]: newQty };
         updateAttendance(dateStr, newStatus);

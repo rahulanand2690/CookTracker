@@ -15,14 +15,15 @@ const INITIAL_WORKER_STATE = {
     salary: 0,
     ratePerLitre: 0,
     defaultLitre: 1,
-    shifts: { morning: true, evening: true }
+    shifts: { morning: true, evening: true },
+    includeSundays: false
 };
 
 export const AppProvider = ({ children }) => {
     const [workers, setWorkers] = useState({
-        cook: { ...INITIAL_WORKER_STATE, salary: 6000 },
-        maid: { ...INITIAL_WORKER_STATE, salary: 3000 },
-        milk: { ...INITIAL_WORKER_STATE, salary: 0, ratePerLitre: 60, defaultLitre: 1 }
+        cook: { ...INITIAL_WORKER_STATE, salary: 6000, includeSundays: false },
+        maid: { ...INITIAL_WORKER_STATE, salary: 3000, includeSundays: false },
+        milk: { ...INITIAL_WORKER_STATE, salary: 0, ratePerLitre: 60, defaultLitre: 1, includeSundays: true }
     });
     const [activeWorkerId, setActiveWorkerId] = useState('cook');
     const [isLoading, setIsLoading] = useState(true);
@@ -33,7 +34,7 @@ export const AppProvider = ({ children }) => {
 
     const loadData = async () => {
         try {
-            const storedWorkers = await AsyncStorage.getItem('tracker_workers_v3'); // Increment version
+            const storedWorkers = await AsyncStorage.getItem('tracker_workers_v4'); // Increment version
 
             if (storedWorkers) {
                 setWorkers(JSON.parse(storedWorkers));
@@ -53,8 +54,11 @@ export const AppProvider = ({ children }) => {
                         };
 
                         // Milk specific defaults if migrating from fresh v2
-                        if (key === 'milk' && !parsed[key].ratePerLitre) {
-                            migrated[key].ratePerLitre = 60;
+                        if (key === 'milk') {
+                            if (!parsed[key].ratePerLitre) migrated[key].ratePerLitre = 60;
+                            migrated[key].includeSundays = true;
+                        } else {
+                            migrated[key].includeSundays = parsed[key].includeSundays || false;
                         }
                     });
                     setWorkers(migrated);
@@ -69,7 +73,7 @@ export const AppProvider = ({ children }) => {
 
     const saveWorkers = async (newWorkers) => {
         setWorkers(newWorkers);
-        await AsyncStorage.setItem('tracker_workers_v3', JSON.stringify(newWorkers));
+        await AsyncStorage.setItem('tracker_workers_v4', JSON.stringify(newWorkers));
     };
 
     const updateAttendance = (date, status) => {
@@ -127,7 +131,8 @@ export const AppProvider = ({ children }) => {
             {
                 ratePerLitre: currentWorker.ratePerLitre,
                 defaultLitre: currentWorker.defaultLitre,
-                salary: currentWorker.salary
+                salary: currentWorker.salary,
+                includeSundays: currentWorker.includeSundays
             }
         );
 

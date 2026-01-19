@@ -9,21 +9,39 @@ const MILK_BG = require('../../assets/images/milk_bg.jpg');
 
 const CalendarScreen = () => {
     const { activeWorker, activeWorkerId, updateAttendance } = useContext(AppContext);
+
+    if (!activeWorker) return null;
+
     const [selectedDate, setSelectedDate] = useState(null);
     const [modalVisible, setModalVisible] = useState(false);
 
     const isMilk = activeWorkerId === 'milk';
 
     const handleDayPress = (day) => {
-        // Prevent selecting Sundays
+        if (!day || !day.dateString) return;
+
+        // Prevent selecting Sundays ONLY if includeSundays is false
+        // Safely parse date
         const date = new Date(day.dateString);
-        if (date.getDay() === 0) return;
+        if (date.getDay() === 0 && (!activeWorker || !activeWorker.includeSundays)) return;
 
         setSelectedDate(day.dateString);
         setModalVisible(true);
     };
 
+    const formatDate = (dateString) => {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        const options = { month: 'long', day: 'numeric', year: 'numeric' };
+        try {
+            return date.toLocaleDateString('en-US', options);
+        } catch (e) {
+            return dateString; // Fallback
+        }
+    };
+
     const getDayStatus = (dateStr) => {
+        if (!activeWorker || !activeWorker.attendance) return { morning: undefined, evening: undefined };
         return activeWorker.attendance[dateStr] || { morning: undefined, evening: undefined };
     };
 
@@ -39,9 +57,15 @@ const CalendarScreen = () => {
     };
 
     const updateMilkLimit = (shift, change) => {
-        const currentQty = typeof currentStatus[shift] === 'number'
-            ? currentStatus[shift]
-            : (currentStatus[shift] ? activeWorker.defaultLitre : 0);
+        let currentQty;
+        if (typeof currentStatus[shift] === 'number') {
+            currentQty = currentStatus[shift];
+        } else if (currentStatus[shift] === true) {
+            currentQty = activeWorker.defaultLitre;
+        } else {
+            // "Start with default" logic
+            currentQty = activeWorker.defaultLitre;
+        }
 
         let newQty = currentQty + change;
         if (newQty < 0) newQty = 0;
@@ -103,21 +127,23 @@ const CalendarScreen = () => {
                         }}
                         dayComponent={({ date, state }) => {
                             const dateStr = date.dateString;
-                            const status = activeWorker.attendance[dateStr] || {};
-                            const isSunday = new Date(dateStr).getDay() === 0;
-                            const isToday = state === 'today';
+                            const status = (activeWorker && activeWorker.attendance && activeWorker.attendance[dateStr]) || {};
+                            // Safe date parsing
+                            const dateObj = new Date(dateStr);
+                            const isSunday = dateObj.getDay() === 0;
+                            const isDisabled = state === 'disabled' || (isSunday && (!activeWorker || !activeWorker.includeSundays));
 
                             return (
                                 <TouchableOpacity
-                                    style={[styles.dayContainer, isSunday && styles.disabledDay]}
-                                    onPress={() => !isSunday && handleDayPress(date)}
-                                    disabled={state === 'disabled' || isSunday}
+                                    style={[styles.dayContainer, isDisabled && styles.disabledDay]}
+                                    onPress={() => !isDisabled && handleDayPress(date)}
+                                    disabled={isDisabled}
                                 >
                                     <Text style={[
                                         styles.dayText,
                                         isSunday && styles.sundayText,
                                         state === 'disabled' && styles.disabledText,
-                                        isToday && styles.todayText
+                                        state === 'today' && styles.todayText
                                     ]}>
                                         {date.day}
                                     </Text>
@@ -163,7 +189,7 @@ const CalendarScreen = () => {
                         <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
                             <View style={styles.modalHeader}>
                                 <Text style={styles.modalDate}>
-                                    {selectedDate && new Date(selectedDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                                    {selectedDate && new Date(selectedDate).toDateString()}
                                 </Text>
                                 <TouchableOpacity onPress={() => setModalVisible(false)}>
                                     <Ionicons name="close" size={24} color="#333" />

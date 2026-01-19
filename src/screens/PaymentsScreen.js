@@ -16,12 +16,14 @@ const PaymentsScreen = () => {
     const [ratePerLitre, setRatePerLitre] = useState(activeWorker.ratePerLitre?.toString() || '0');
     const [defaultLitre, setDefaultLitre] = useState(activeWorker.defaultLitre?.toString() || '1');
     const [shifts, setShifts] = useState(activeWorker.shifts);
+    const [includeSundays, setIncludeSundays] = useState(activeWorker.includeSundays || false);
 
     useEffect(() => {
         setEditingSalary(activeWorker.salary?.toString() || '0');
         setRatePerLitre(activeWorker.ratePerLitre?.toString() || '0');
         setDefaultLitre(activeWorker.defaultLitre?.toString() || '1');
         setShifts(activeWorker.shifts);
+        setIncludeSundays(activeWorker.includeSundays !== undefined ? activeWorker.includeSundays : (isMilk ? true : false));
     }, [activeWorker]);
 
     const stats = getStatsForMonth(now.getFullYear(), now.getMonth() + 1);
@@ -37,7 +39,8 @@ const PaymentsScreen = () => {
             shifts,
             salary: parseInt(editingSalary) || 0,
             ratePerLitre: parseFloat(ratePerLitre) || 0,
-            defaultLitre: parseFloat(defaultLitre) || 1
+            defaultLitre: parseFloat(defaultLitre) || 1,
+            includeSundays
         };
         updateWorkerSettings(settings);
     };
@@ -50,9 +53,22 @@ const PaymentsScreen = () => {
             shifts: newShifts,
             salary: parseInt(editingSalary) || 0,
             ratePerLitre: parseFloat(ratePerLitre) || 0,
-            defaultLitre: parseFloat(defaultLitre) || 1
+            defaultLitre: parseFloat(defaultLitre) || 1,
+            includeSundays
         });
     };
+
+    const toggleSunday = () => {
+        const newVal = !includeSundays;
+        setIncludeSundays(newVal);
+        updateWorkerSettings({
+            shifts,
+            salary: parseInt(editingSalary) || 0,
+            ratePerLitre: parseFloat(ratePerLitre) || 0,
+            defaultLitre: parseFloat(defaultLitre) || 1,
+            includeSundays: newVal
+        });
+    }
 
     const BackgroundWrapper = ({ children }) => {
         if (isMilk) {
@@ -103,6 +119,24 @@ const PaymentsScreen = () => {
                                 thumbColor={shifts.evening ? "#3F51B5" : "#f4f3f4"}
                             />
                         </View>
+
+                        {!isMilk && (
+                            <>
+                                <View style={styles.divider} />
+                                <View style={styles.shiftToggleRow}>
+                                    <View style={styles.shiftLabelGroup}>
+                                        <Ionicons name="calendar" size={20} color="#666" />
+                                        <Text style={styles.toggleLabel}>Include Sundays</Text>
+                                    </View>
+                                    <Switch
+                                        value={includeSundays}
+                                        onValueChange={toggleSunday}
+                                        trackColor={{ false: "#767577", true: "#81C784" }}
+                                        thumbColor={includeSundays ? "#4CAF50" : "#f4f3f4"}
+                                    />
+                                </View>
+                            </>
+                        )}
                     </View>
 
                     <Text style={styles.sectionTitleWithOptions}>Cost Settings</Text>
