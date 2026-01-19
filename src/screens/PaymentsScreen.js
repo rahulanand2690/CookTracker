@@ -1,8 +1,10 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, Alert, Switch } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, Alert, Switch, ImageBackground } from 'react-native';
 import { AppContext } from '../context/AppContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+
+const MILK_BG = require('../../assets/images/milk_bg.jpg');
 
 const PaymentsScreen = () => {
     const { activeWorkerId, activeWorker, updateWorkerSettings, getStatsForMonth, workerMeta } = useContext(AppContext);
@@ -54,7 +56,13 @@ const PaymentsScreen = () => {
 
     const BackgroundWrapper = ({ children }) => {
         if (isMilk) {
-            return <View style={[styles.container, styles.milkBackground]}>{children}</View>;
+            return (
+                <ImageBackground source={MILK_BG} style={styles.bgImage} resizeMode="cover">
+                    <View style={styles.overlay}>
+                        {children}
+                    </View>
+                </ImageBackground>
+            );
         }
         return <View style={styles.container}>{children}</View>;
     };
@@ -69,7 +77,7 @@ const PaymentsScreen = () => {
                     <Text style={styles.subHeader}>For: {workerMeta.name}</Text>
 
                     <Text style={styles.sectionTitle}>Shift Configuration</Text>
-                    <View style={styles.configContainer}>
+                    <View style={[styles.configContainer, isMilk && styles.milkCard]}>
                         <View style={styles.shiftToggleRow}>
                             <View style={styles.shiftLabelGroup}>
                                 <Ionicons name="sunny" size={20} color="#FFA000" />
@@ -102,7 +110,7 @@ const PaymentsScreen = () => {
                     <View style={styles.controlsRow}>
                         <View style={styles.controlGroup}>
                             <Text style={styles.label}>Month</Text>
-                            <View style={styles.inputContainer}>
+                            <View style={[styles.inputContainer, isMilk && styles.milkCard]}>
                                 <Text style={styles.inputValue}>{monthName}</Text>
                             </View>
                         </View>
@@ -126,7 +134,7 @@ const PaymentsScreen = () => {
                         {isMilk && (
                             <View style={styles.controlGroup}>
                                 <Text style={styles.label}>Rate / Litre</Text>
-                                <View style={[styles.inputContainer, styles.editableInput]}>
+                                <View style={[styles.inputContainer, styles.editableInput, isMilk && styles.milkCard]}>
                                     <Text style={styles.currencySymbol}>₹</Text>
                                     <TextInput
                                         value={ratePerLitre}
@@ -143,7 +151,7 @@ const PaymentsScreen = () => {
                     {isMilk && (
                         <View style={styles.rowSingle}>
                             <Text style={styles.label}>Default Daily Litres</Text>
-                            <View style={[styles.inputContainer, styles.editableInput]}>
+                            <View style={[styles.inputContainer, styles.editableInput, isMilk && styles.milkCard]}>
                                 <Ionicons name="beaker" size={16} color="#333" style={{ marginRight: 5 }} />
                                 <TextInput
                                     value={defaultLitre}
@@ -175,12 +183,12 @@ const PaymentsScreen = () => {
                             </>
                         ) : (
                             <>
-                                <View style={styles.breakdownCard}>
+                                <View style={[styles.breakdownCard, styles.milkCard]}>
                                     <Text style={styles.breakdownLabel}>Working Days</Text>
                                     <Text style={styles.breakdownValue}>{stats.workingDays}</Text>
                                     <Text style={styles.breakdownSub}>days (excl Sun)</Text>
                                 </View>
-                                <View style={styles.breakdownCard}>
+                                <View style={[styles.breakdownCard, styles.milkCard]}>
                                     <Text style={styles.breakdownLabel}>Total Milk</Text>
                                     <Text style={styles.breakdownValue}>{stats.totalLitres}</Text>
                                     <Text style={styles.breakdownSub}>Litres</Text>
@@ -209,8 +217,17 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#fff'
     },
-    milkBackground: {
-        backgroundColor: '#F1F8E9'
+    bgImage: {
+        flex: 1,
+        width: '100%',
+    },
+    overlay: {
+        flex: 1,
+        backgroundColor: 'rgba(255,255,255,0.7)'
+    },
+    milkCard: {
+        backgroundColor: 'rgba(255,255,255,0.9)',
+        borderColor: '#81C784'
     },
     content: {
         padding: 20
@@ -331,7 +348,7 @@ const styles = StyleSheet.create({
         borderRadius: 15,
         borderWidth: 1,
         borderColor: '#eee',
-        backgroundColor: 'rgba(255,255,255,0.9)'
+        backgroundColor: '#fff'
     },
     breakdownLabel: {
         fontSize: 14,

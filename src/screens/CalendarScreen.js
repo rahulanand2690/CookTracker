@@ -1,9 +1,11 @@
 import React, { useState, useContext } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, ImageBackground } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { AppContext } from '../context/AppContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+
+const MILK_BG = require('../../assets/images/milk_bg.jpg');
 
 const CalendarScreen = () => {
     const { activeWorker, activeWorkerId, updateAttendance } = useContext(AppContext);
@@ -56,7 +58,13 @@ const CalendarScreen = () => {
 
     const BackgroundWrapper = ({ children }) => {
         if (isMilk) {
-            return <View style={[styles.container, styles.milkBackground]}>{children}</View>;
+            return (
+                <ImageBackground source={MILK_BG} style={styles.bgImage} resizeMode="cover">
+                    <View style={styles.overlay}>
+                        {children}
+                    </View>
+                </ImageBackground>
+            );
         }
         return <View style={styles.container}>{children}</View>;
     };
@@ -89,7 +97,9 @@ const CalendarScreen = () => {
                             arrowColor: '#7E57C2',
                             textMonthFontWeight: 'bold',
                             textMonthFontSize: 18,
-                            calendarBackground: 'transparent' // Allow background color to show
+                            calendarBackground: 'transparent',
+                            textSectionTitleColor: '#333',
+                            dayTextColor: '#333'
                         }}
                         dayComponent={({ date, state }) => {
                             const dateStr = date.dateString;
@@ -236,8 +246,13 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#fff'
     },
-    milkBackground: {
-        backgroundColor: '#F1F8E9'
+    bgImage: {
+        flex: 1,
+        width: '100%',
+    },
+    overlay: {
+        flex: 1,
+        backgroundColor: 'rgba(255,255,255,0.7)',
     },
     headerTitle: {
         fontSize: 22,

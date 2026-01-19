@@ -4,11 +4,8 @@ import { AppContext } from '../context/AppContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
-// Placeholder for the background image - In a real app, this would be imported from assets
-// const MILK_BG = require('../../assets/images/milk_bg.png'); 
-// Using a subtle color/gradient logic or verify if user provided asset is available. 
-// Since we don't have the file physically in the native bundle yet without a rebuild/add, 
-// we will assume it's available or use a condition. For now, conditional styling.
+// Using the newly moved asset
+const MILK_BG = require('../../assets/images/milk_bg.jpg');
 
 const HomeScreen = () => {
     const { activeWorkerId, setActiveWorkerId, activeWorker, updateAttendance, getStatsForMonth, WORKER_TYPES } = useContext(AppContext);
@@ -38,11 +35,6 @@ const HomeScreen = () => {
         let newQty = currentQty + change;
         if (newQty < 0) newQty = 0; // Minimum 0
 
-        // If 0, maybe mark as absent? Or just 0 litres present? Let's keep it simple: 0 litres is still 'present' record but 0 cost. 
-        // Or if user specifically wants 'Absent', they can toggle via a separate mechanism?
-        // Simpler: If quantity > 0, calculate cost. Explicit Absent is tricky with just +/- buttons.
-        // Let's treat 0 as 0 quantity. 
-
         const newStatus = { ...todayStatus, [shift]: newQty };
         updateAttendance(dateStr, newStatus);
     };
@@ -59,6 +51,7 @@ const HomeScreen = () => {
     };
 
     const renderMilkControls = (shift) => {
+        // Correctly read 'true' as defaultLitre for display
         const currentQty = typeof todayStatus[shift] === 'number' ? todayStatus[shift] : (todayStatus[shift] === true ? activeWorker.defaultLitre : 0);
 
         return (
@@ -76,9 +69,13 @@ const HomeScreen = () => {
 
     const BackgroundWrapper = ({ children }) => {
         if (isMilk) {
-            // For now using style since we don't have the asset link working in Expo Go without download
-            // In real scenario: <ImageBackground source={require('path')} ... >
-            return <View style={[styles.container, styles.milkBackground]}>{children}</View>;
+            return (
+                <ImageBackground source={MILK_BG} style={styles.bgImage} resizeMode="cover">
+                    <View style={styles.overlay}>
+                        {children}
+                    </View>
+                </ImageBackground>
+            );
         }
         return <View style={styles.container}>{children}</View>;
     };
@@ -192,8 +189,13 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#fff',
     },
-    milkBackground: {
-        backgroundColor: '#F1F8E9' // Light green tint as fallback/theme
+    bgImage: {
+        flex: 1,
+        width: '100%',
+    },
+    overlay: {
+        flex: 1,
+        backgroundColor: 'rgba(255,255,255,0.7)' // White overlay to ensure readability over the image
     },
     scrollContent: {
         padding: 20,
@@ -280,7 +282,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#eee',
         marginBottom: 15,
-        backgroundColor: 'rgba(255,255,255,0.8)', // Semi transparent for BG
+        backgroundColor: 'rgba(255,255,255,0.9)',
         elevation: 1,
     },
     shiftIconContainer: {
