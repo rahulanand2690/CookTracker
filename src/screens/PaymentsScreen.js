@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, Alert, Switch, ImageBackground } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, Alert, Switch, ImageBackground, Modal } from 'react-native';
 import { AppContext } from '../context/AppContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,8 +9,11 @@ const MAID_BG = require('../../assets/images/maid_bg.jpg');
 const COOK_BG = require('../../assets/images/cook_bg.jpg');
 
 const PaymentsScreen = () => {
-    const { activeWorkerId, activeWorker, updateWorkerSettings, getStatsForMonth, workerMeta } = useContext(AppContext);
+    const { activeWorkerId, activeWorker, updateWorkerSettings, getStatsForMonth, workerMeta, addPayment } = useContext(AppContext);
     const [selectedDate, setSelectedDate] = useState(new Date());
+
+    const [paymentModalVisible, setPaymentModalVisible] = useState(false);
+    const [paymentAmount, setPaymentAmount] = useState('');
 
     const isMilk = activeWorkerId === 'milk';
     const isMaid = activeWorkerId === 'maid';
@@ -79,6 +82,23 @@ const PaymentsScreen = () => {
             includeSundays: newVal
         });
     }
+
+    const handlePaymentSubmit = () => {
+        const amount = parseInt(paymentAmount);
+        if (isNaN(amount) || amount <= 0) {
+            Alert.alert('Invalid Amount', 'Please enter a valid amount.');
+            return;
+        }
+
+        // Format date as YYYY-MM-DD for storage reference (or full timestamp)
+        // Storing as YYYY-MM-DD for monthly categorization
+        const dateStr = selectedDate.toISOString().split('T')[0];
+
+        addPayment(amount, dateStr);
+        setPaymentModalVisible(false);
+        setPaymentAmount('');
+        Alert.alert('Success', 'Payment recorded successfully.');
+    };
 
     const BackgroundWrapper = ({ children }) => {
         if (isMilk) {
@@ -268,13 +288,72 @@ const PaymentsScreen = () => {
                     </View>
 
                     <View style={styles.totalCard}>
-                        <Text style={styles.totalLabel}>Total Payable</Text>
-                        <Text style={styles.totalValue}>₹{stats.totalSalary}</Text>
+                        {stats.previousBalance !== 0 && (
+                            <View style={styles.balanceRow}>
+                                <Text style={styles.balanceLabel}>Previous Balance</Text>
+                                <Text style={[styles.balanceValue, stats.previousBalance < 0 ? styles.negative : styles.positive]}>
+                                    ₹{stats.previousBalance}
+                                </Text>
+                            </View>
+                        )}
 
-                        <TouchableOpacity style={styles.payButton} onPress={() => Alert.alert('Payment', 'Record Payment feature coming soon!')}>
+                        <View style={styles.balanceRow}>
+                            <Text style={styles.balanceLabel}>Current Month</Text>
+                            <Text style={styles.balanceValue}>₹{stats.totalSalary}</Text>
+                        </View>
+
+                        {stats.currentMonthPayments > 0 && (
+                            <View style={styles.balanceRow}>
+                                <Text style={styles.balanceLabel}>Paid this month</Text>
+                                <Text style={[styles.balanceValue, styles.negative]}>- ₹{stats.currentMonthPayments}</Text>
+                            </View>
+                        )}
+
+                        <View style={styles.dividerWhite} />
+
+                        <Text style={styles.totalLabel}>Net Payable</Text>
+                        <Text style={styles.totalValue}>₹{stats.netPayable}</Text>
+
+                        <TouchableOpacity style={styles.payButton} onPress={() => setPaymentModalVisible(true)}>
                             <Text style={styles.payButtonText}>Record Payment</Text>
                         </TouchableOpacity>
                     </View>
+
+                    <Modal
+                        animationType="slide"
+                        transparent={true}
+                        visible={paymentModalVisible}
+                        onRequestClose={() => setPaymentModalVisible(false)}
+                    >
+                        <TouchableOpacity
+                            style={styles.modalOverlay}
+                            activeOpacity={1}
+                            onPress={() => setPaymentModalVisible(false)}
+                        >
+                            <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+                                <Text style={styles.modalTitle}>Record Payment</Text>
+                                <Text style={styles.modalSub}>Enter amount paid to {workerMeta.name}</Text>
+
+                                <TextInput
+                                    style={styles.modalInput}
+                                    placeholder="Amount (₹)"
+                                    keyboardType="numeric"
+                                    value={paymentAmount}
+                                    onChangeText={setPaymentAmount}
+                                    autoFocus
+                                />
+
+                                <View style={styles.modalActions}>
+                                    <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setPaymentModalVisible(false)}>
+                                        <Text style={styles.cancelText}>Cancel</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={handlePaymentSubmit}>
+                                        <Text style={styles.confirmText}>Confirm</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        </TouchableOpacity>
+                    </Modal>
 
                 </ScrollView>
             </SafeAreaView>
@@ -469,6 +548,89 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         width: '100%'
+    },
+    balanceRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        width: '100%',
+        marginBottom: 8
+    },
+    balanceLabel: {
+        fontSize: 14,
+        color: 'rgba(255,255,255, 0.8)'
+    },
+    balanceValue: {
+        fontSize: 16,
+        color: '#fff',
+        fontWeight: 'bold'
+    },
+    negative: {
+        color: '#ffccbc' // Light reddish
+    },
+    positive: {
+        color: '#c8e6c9' // Light green
+    },
+    dividerWhite: {
+        height: 1,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        width: '100%',
+        marginVertical: 15
+    },
+    // Modal Styles
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        padding: 20
+    },
+    modalContent: {
+        backgroundColor: '#fff',
+        borderRadius: 20,
+        padding: 24,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginBottom: 5,
+        textAlign: 'center'
+    },
+    modalSub: {
+        fontSize: 14,
+        color: '#666',
+        textAlign: 'center',
+        marginBottom: 20
+    },
+    modalInput: {
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: 10,
+        padding: 15,
+        fontSize: 18,
+        marginBottom: 20
+    },
+    modalActions: {
+        flexDirection: 'row',
+        gap: 15
+    },
+    modalBtn: {
+        flex: 1,
+        paddingVertical: 12,
+        borderRadius: 10,
+        alignItems: 'center'
+    },
+    cancelBtn: {
+        backgroundColor: '#f5f5f5'
+    },
+    confirmBtn: {
+        backgroundColor: '#7E57C2'
+    },
+    cancelText: {
+        color: '#666',
+        fontWeight: '600'
+    },
+    confirmText: {
+        color: '#fff',
+        fontWeight: '600'
     }
 });
 

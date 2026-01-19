@@ -15,6 +15,7 @@ const INITIAL_WORKER_STATE = {
     salary: 0,
     ratePerLitre: 0,
     defaultLitre: 1,
+    payments: [],
     shifts: { morning: true, evening: true },
     includeSundays: false
 };
@@ -107,22 +108,65 @@ export const AppProvider = ({ children }) => {
         saveWorkers(newWorkers);
     };
 
+    const addPayment = (amount, date) => {
+        const currentWorker = workers[activeWorkerId];
+        const newPayments = [
+            ...(currentWorker.payments || []),
+            { amount, date, timestamp: Date.now() }
+        ];
+
+        const newWorkers = {
+            ...workers,
+            [activeWorkerId]: {
+                ...currentWorker,
+                payments: newPayments
+            }
+        };
+        saveWorkers(newWorkers);
+    };
+
     const getStatsForMonth = (year, month) => {
         const currentWorker = workers[activeWorkerId];
 
-        // Filter attendance for specific month
-        const currentMonthAttendance = Object.keys(currentWorker.attendance)
-            .filter(date => {
-                const [y, m] = date.split('-');
-                return parseInt(y) === year && parseInt(m) === month;
-            })
-            .reduce((obj, key) => {
-                obj[key] = currentWorker.attendance[key];
-                return obj;
-            }, {});
+        // 1. Calculate Previous Balance (Up to start of this month)
+        // Previous Balance = (Total Lifetime Salary) - (Total Lifetime Payments) [Before this month]
 
-        // Pass worker type and specific settings to calculator
-        const stats = calculateSalary(
+        let lifetimeSalary = 0;
+        let lifetimePayments = 0;
+
+        // Iterate through all attendance to calculate lifetime salary
+        // This acts as a ledger replay. Optimization: Snapshot could be stored, but for now replay is fine.
+        const allDates = Object.keys(currentWorker.attendance);
+        const sortedDates = allDates.sort(); // String sort works for YYYY-MM-DD
+
+        // We need to sum up salary for all months BEFORE data of 'year-month'
+        // Actually, easier: Calculate ALL previous months' stats.
+
+        // Simpler approach for "Previous Balance":
+        // It's effectively: (Sum of all past months' Net Payables) - (Sum of all past months' Payments) ??
+        // No, simplest: 
+        // Total Value Generated (Lifetime) - Total Paid (Lifetime) = Current Balance.
+        // To get "Previous Balance" (Balance at start of month), we calculate (Value - Paid) up to < YYYY-MM-01.
+
+        const targetMonthStart = new Date(year, month - 1, 1); // Month is 1-indexed in arg, but Date is 0-indexed
+
+        // Filter attendance before this month
+        const pastAttendance = {};
+        const currentMonthAttendance = {};
+
+        Object.keys(currentWorker.attendance).forEach(date => {
+            const [dY, dM, dD] = date.split('-').map(Number);
+            const dDate = new Date(dY, dM - 1, dD);
+
+            if (dDate < targetMonthStart) {
+                pastAttendance[date] = currentWorker.attendance[date];
+            } else if (dY === year && dM === month) {
+                currentMonthAttendance[date] = currentWorker.attendance[date];
+            }
+        });
+
+        // Calculate Salary for current month
+        const currentMonthStats = calculateSalary(
             currentMonthAttendance,
             year,
             month,
@@ -136,10 +180,79 @@ export const AppProvider = ({ children }) => {
             }
         );
 
+        // To calculate accurate "Previous Balance", we technically need to calculate salary for EVERY past month.
+        // Because salary is monthly based, not just daily rate (for Cook/Maid).
+        // For Milk it is purely daily/volume based so simpler.
+        // For fixed salary, we need to know how many previous months passed since... when? 
+        // Assumption: If there is attendance in a month, salary applies? Or assume salary applies every month?
+        // Let's stick to: Salary applies if there is ANY attendance or if it's explicitly generated?
+        // For simplicity in this version: Previous Balance is derived from "Past Unpaid Due".
+
+        // REVISED APPROACH for "Previous Balance":
+        // Iterate all months present in attendance/payments up to current month.
+
+        const allMonths = new Set();
+        Object.keys(currentWorker.attendance).forEach(d => allMonths.add(d.substring(0, 7))); // YYYY-MM
+        (currentWorker.payments || []).forEach(p => allMonths.add(p.date.substring(0, 7)));
+
+        const sortedMonths = Array.from(allMonths).sort();
+
+        let totalPastSalary = 0;
+        let totalPastPayments = 0;
+
+        sortedMonths.forEach(mStr => {
+            const [mY, mM] = mStr.split('-').map(Number);
+            // If month is BEFORE target month
+            if (mY < year || (mY === year && mM < month)) {
+
+                // Get attendance for this past month
+                const mAttendance = Object.keys(currentWorker.attendance)
+                    .filter(d => d.startsWith(mStr))
+                    .reduce((obj, k) => { obj[k] = currentWorker.attendance[k]; return obj; }, {});
+
+                const mStats = calculateSalary(
+                    mAttendance,
+                    mY,
+                    mM,
+                    currentWorker.shifts,
+                    activeWorkerId,
+                    {
+                        ratePerLitre: currentWorker.ratePerLitre,
+                        defaultLitre: currentWorker.defaultLitre,
+                        salary: currentWorker.salary,
+                        includeSundays: currentWorker.includeSundays
+                    }
+                );
+                totalPastSalary += mStats.totalSalary;
+            }
+        });
+
+        // Sum past payments
+        (currentWorker.payments || []).forEach(p => {
+            const [pY, pM] = p.date.split('-').map(Number);
+            if (pY < year || (pY === year && pM < month)) {
+                totalPastPayments += p.amount;
+            }
+        });
+
+        const previousBalance = totalPastSalary - totalPastPayments;
+
+        // Current Month Payments
+        const currentPayments = (currentWorker.payments || [])
+            .filter(p => {
+                const [pY, pM] = p.date.split('-').map(Number);
+                return pY === year && pM === month;
+            })
+            .reduce((sum, p) => sum + p.amount, 0);
+
+        const netPayable = currentMonthStats.totalSalary + previousBalance - currentPayments;
+
         return {
-            ...stats,
+            ...currentMonthStats,
             monthlySalary: currentWorker.salary,
-            // totalSalary comes from calculator now
+            previousBalance,
+            currentMonthPayments: currentPayments,
+            netPayable
         };
     };
 
@@ -153,6 +266,8 @@ export const AppProvider = ({ children }) => {
             setActiveWorkerId,
             updateAttendance,
             updateWorkerSettings,
+            updateWorkerSettings,
+            addPayment,
             getStatsForMonth,
             isLoading
         }}>
