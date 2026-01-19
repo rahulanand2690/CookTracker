@@ -9,7 +9,7 @@ const MAID_BG = require('../../assets/images/maid_bg.jpg');
 
 const PaymentsScreen = () => {
     const { activeWorkerId, activeWorker, updateWorkerSettings, getStatsForMonth, workerMeta } = useContext(AppContext);
-    const now = new Date();
+    const [selectedDate, setSelectedDate] = useState(new Date());
 
     const isMilk = activeWorkerId === 'milk';
     const isMaid = activeWorkerId === 'maid';
@@ -28,7 +28,13 @@ const PaymentsScreen = () => {
         setIncludeSundays(activeWorker.includeSundays !== undefined ? activeWorker.includeSundays : (isMilk ? true : false));
     }, [activeWorker]);
 
-    const stats = getStatsForMonth(now.getFullYear(), now.getMonth() + 1);
+    const stats = getStatsForMonth(selectedDate.getFullYear(), selectedDate.getMonth() + 1);
+
+    const changeMonth = (delta) => {
+        const newDate = new Date(selectedDate);
+        newDate.setMonth(newDate.getMonth() + delta);
+        setSelectedDate(newDate);
+    };
 
     const handleSave = () => {
         if (!shifts.morning && !shifts.evening) {
@@ -94,7 +100,7 @@ const PaymentsScreen = () => {
         return <View style={styles.container}>{children}</View>;
     };
 
-    const monthName = now.toLocaleDateString('en-US', { month: 'long' });
+    const monthName = selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
     return (
         <BackgroundWrapper>
@@ -156,7 +162,15 @@ const PaymentsScreen = () => {
                         <View style={styles.controlGroup}>
                             <Text style={styles.label}>Month</Text>
                             <View style={[styles.inputContainer, isMilk && styles.milkCard]}>
-                                <Text style={styles.inputValue}>{monthName}</Text>
+                                <View style={styles.monthNav}>
+                                    <TouchableOpacity onPress={() => changeMonth(-1)}>
+                                        <Ionicons name="chevron-back" size={20} color="#555" />
+                                    </TouchableOpacity>
+                                    <Text style={styles.inputValue}>{monthName}</Text>
+                                    <TouchableOpacity onPress={() => changeMonth(1)}>
+                                        <Ionicons name="chevron-forward" size={20} color="#555" />
+                                    </TouchableOpacity>
+                                </View>
                             </View>
                         </View>
 
@@ -438,6 +452,12 @@ const styles = StyleSheet.create({
         color: '#7E57C2',
         fontWeight: 'bold',
         fontSize: 16
+    },
+    monthNav: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        width: '100%'
     }
 });
 
