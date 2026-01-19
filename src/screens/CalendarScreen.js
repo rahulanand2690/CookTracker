@@ -10,7 +10,7 @@ const MAID_BG = require('../../assets/images/maid_bg.jpg');
 const COOK_BG = require('../../assets/images/cook_bg.jpg');
 
 const CalendarScreen = () => {
-    const { activeWorker, activeWorkerId, updateAttendance } = useContext(AppContext);
+    const { activeWorker, activeWorkerId, updateAttendance, workerMeta } = useContext(AppContext);
 
     if (!activeWorker) return null;
 
@@ -135,6 +135,7 @@ const CalendarScreen = () => {
             <SafeAreaView style={{ flex: 1 }}>
                 <View style={{ padding: 20 }}>
                     <Text style={styles.headerTitle}>Attendance Calendar</Text>
+                    <Text style={styles.subHeader}>For: {workerMeta.name}</Text>
 
                     <Calendar
                         onDayPress={handleDayPress}
@@ -305,7 +306,13 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontSize: 22,
         fontWeight: 'bold',
-        marginBottom: 20
+        marginBottom: 5
+    },
+    subHeader: {
+        fontSize: 16,
+        color: '#7E57C2',
+        marginBottom: 20,
+        fontWeight: '600'
     },
     dayContainer: {
         alignItems: 'center',
