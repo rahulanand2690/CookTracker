@@ -6,9 +6,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 const CalendarScreen = () => {
-    const { activeWorker, updateAttendance } = useContext(AppContext);
+    const { activeWorker, activeWorkerId, updateAttendance } = useContext(AppContext);
     const [selectedDate, setSelectedDate] = useState(null);
     const [modalVisible, setModalVisible] = useState(false);
+
+    const isMilk = activeWorkerId === 'milk';
 
     const handleDayPress = (day) => {
         // Prevent selecting Sundays
@@ -34,159 +36,208 @@ const CalendarScreen = () => {
         }
     };
 
+    const updateMilkLimit = (shift, change) => {
+        const currentQty = typeof currentStatus[shift] === 'number'
+            ? currentStatus[shift]
+            : (currentStatus[shift] ? activeWorker.defaultLitre : 0);
+
+        let newQty = currentQty + change;
+        if (newQty < 0) newQty = 0;
+
+        setStatus(shift, newQty);
+    };
+
     const renderIndicator = (status) => {
-        if (status === true) return styles.bgGreen; // Present
+        if (typeof status === 'number') return styles.bgGreen; // Custom quantity
+        if (status === true) return styles.bgGreen; // Present (Default)
         if (status === false) return styles.bgRed;   // Absent
         return styles.bgGray;                        // Not Marked
     };
 
+    const BackgroundWrapper = ({ children }) => {
+        if (isMilk) {
+            return <View style={[styles.container, styles.milkBackground]}>{children}</View>;
+        }
+        return <View style={styles.container}>{children}</View>;
+    };
+
+    const renderMilkControls = (shift) => {
+        const currentQty = typeof currentStatus[shift] === 'number' ? currentStatus[shift] : (currentStatus[shift] ? activeWorker.defaultLitre : 0);
+        return (
+            <View style={styles.toggleGroup}>
+                <TouchableOpacity style={styles.qtyBtn} onPress={() => updateMilkLimit(shift, -0.25)}>
+                    <Ionicons name="remove" size={20} color="#555" />
+                </TouchableOpacity>
+                <Text style={styles.qtyText}>{currentQty} L</Text>
+                <TouchableOpacity style={styles.qtyBtn} onPress={() => updateMilkLimit(shift, 0.25)}>
+                    <Ionicons name="add" size={20} color="#555" />
+                </TouchableOpacity>
+            </View>
+        );
+    };
+
     return (
-        <SafeAreaView style={styles.container}>
-            <Text style={styles.headerTitle}>Attendance Calendar</Text>
+        <BackgroundWrapper>
+            <SafeAreaView style={{ flex: 1 }}>
+                <View style={{ padding: 20 }}>
+                    <Text style={styles.headerTitle}>Attendance Calendar</Text>
 
-            <Calendar
-                onDayPress={handleDayPress}
-                theme={{
-                    todayTextColor: '#7E57C2',
-                    arrowColor: '#7E57C2',
-                    textMonthFontWeight: 'bold',
-                    textMonthFontSize: 18,
-                }}
-                dayComponent={({ date, state }) => {
-                    const dateStr = date.dateString;
-                    const status = activeWorker.attendance[dateStr] || {};
-                    const isSunday = new Date(dateStr).getDay() === 0;
-                    const isToday = state === 'today';
+                    <Calendar
+                        onDayPress={handleDayPress}
+                        theme={{
+                            todayTextColor: '#7E57C2',
+                            arrowColor: '#7E57C2',
+                            textMonthFontWeight: 'bold',
+                            textMonthFontSize: 18,
+                            calendarBackground: 'transparent' // Allow background color to show
+                        }}
+                        dayComponent={({ date, state }) => {
+                            const dateStr = date.dateString;
+                            const status = activeWorker.attendance[dateStr] || {};
+                            const isSunday = new Date(dateStr).getDay() === 0;
+                            const isToday = state === 'today';
 
-                    return (
-                        <TouchableOpacity
-                            style={[styles.dayContainer, isSunday && styles.disabledDay]}
-                            onPress={() => !isSunday && handleDayPress(date)}
-                            disabled={state === 'disabled' || isSunday}
-                        >
-                            <Text style={[
-                                styles.dayText,
-                                isSunday && styles.sundayText,
-                                state === 'disabled' && styles.disabledText,
-                                isToday && styles.todayText
-                            ]}>
-                                {date.day}
-                            </Text>
-                            {!isSunday && (
-                                <View style={styles.indicatorRow}>
-                                    {activeWorker.shifts.morning && <View style={[styles.indicator, renderIndicator(status.morning)]} />}
-                                    {activeWorker.shifts.evening && <View style={[styles.indicator, renderIndicator(status.evening)]} />}
+                            return (
+                                <TouchableOpacity
+                                    style={[styles.dayContainer, isSunday && styles.disabledDay]}
+                                    onPress={() => !isSunday && handleDayPress(date)}
+                                    disabled={state === 'disabled' || isSunday}
+                                >
+                                    <Text style={[
+                                        styles.dayText,
+                                        isSunday && styles.sundayText,
+                                        state === 'disabled' && styles.disabledText,
+                                        isToday && styles.todayText
+                                    ]}>
+                                        {date.day}
+                                    </Text>
+                                    {!isSunday && (
+                                        <View style={styles.indicatorRow}>
+                                            {activeWorker.shifts.morning && <View style={[styles.indicator, renderIndicator(status.morning)]} />}
+                                            {activeWorker.shifts.evening && <View style={[styles.indicator, renderIndicator(status.evening)]} />}
+                                        </View>
+                                    )}
+                                </TouchableOpacity>
+                            );
+                        }}
+                    />
+
+                    {/* Manual Legend */}
+                    <View style={styles.legendContainer}>
+                        <View style={styles.legendItem}>
+                            <View style={[styles.indicator, styles.bgGreen]} />
+                            <Text style={styles.legendText}>Present</Text>
+                        </View>
+                        <View style={styles.legendItem}>
+                            <View style={[styles.indicator, styles.bgRed]} />
+                            <Text style={styles.legendText}>Absent</Text>
+                        </View>
+                        <View style={styles.legendItem}>
+                            <View style={[styles.indicator, styles.bgGray]} />
+                            <Text style={styles.legendText}>Unmarked</Text>
+                        </View>
+                    </View>
+                </View>
+
+                <Modal
+                    animationType="slide"
+                    transparent={true}
+                    visible={modalVisible}
+                    onRequestClose={() => setModalVisible(false)}
+                >
+                    <TouchableOpacity
+                        style={styles.modalOverlay}
+                        activeOpacity={1}
+                        onPress={() => setModalVisible(false)}
+                    >
+                        <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+                            <View style={styles.modalHeader}>
+                                <Text style={styles.modalDate}>
+                                    {selectedDate && new Date(selectedDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                                </Text>
+                                <TouchableOpacity onPress={() => setModalVisible(false)}>
+                                    <Ionicons name="close" size={24} color="#333" />
+                                </TouchableOpacity>
+                            </View>
+                            <Text style={styles.modalSub}>Mark attendance for this day</Text>
+
+                            {/* Morning Row */}
+                            {activeWorker.shifts.morning && (
+                                <View style={styles.shiftRow}>
+                                    <View style={styles.shiftLabelRow}>
+                                        <Ionicons name="sunny-outline" size={20} color="#FFA000" />
+                                        <Text style={styles.shiftLabel}>Morning</Text>
+                                    </View>
+                                    {isMilk ? renderMilkControls('morning') : (
+                                        <View style={styles.toggleGroup}>
+                                            <TouchableOpacity
+                                                style={[styles.toggleBtn, currentStatus.morning === false && styles.toggleSelectedRed]}
+                                                onPress={() => setStatus('morning', currentStatus.morning === false ? undefined : false)}
+                                            >
+                                                <Text style={[styles.toggleText, currentStatus.morning === false && styles.textWhite]}>A</Text>
+                                            </TouchableOpacity>
+
+                                            <TouchableOpacity
+                                                style={[styles.toggleBtn, currentStatus.morning === true && styles.toggleSelectedGreen]}
+                                                onPress={() => setStatus('morning', currentStatus.morning === true ? undefined : true)}
+                                            >
+                                                <Text style={[styles.toggleText, currentStatus.morning === true && styles.textWhite]}>P</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    )}
                                 </View>
                             )}
-                        </TouchableOpacity>
-                    );
-                }}
-            />
 
-            {/* Manual Legend */}
-            <View style={styles.legendContainer}>
-                <View style={styles.legendItem}>
-                    <View style={[styles.indicator, styles.bgGreen]} />
-                    <Text style={styles.legendText}>Present</Text>
-                </View>
-                <View style={styles.legendItem}>
-                    <View style={[styles.indicator, styles.bgRed]} />
-                    <Text style={styles.legendText}>Absent</Text>
-                </View>
-                <View style={styles.legendItem}>
-                    <View style={[styles.indicator, styles.bgGray]} />
-                    <Text style={styles.legendText}>Unmarked</Text>
-                </View>
-            </View>
+                            {/* Evening Row */}
+                            {activeWorker.shifts.evening && (
+                                <View style={styles.shiftRow}>
+                                    <View style={styles.shiftLabelRow}>
+                                        <Ionicons name="moon-outline" size={20} color="#3F51B5" />
+                                        <Text style={styles.shiftLabel}>Evening</Text>
+                                    </View>
+                                    {isMilk ? renderMilkControls('evening') : (
+                                        <View style={styles.toggleGroup}>
+                                            <TouchableOpacity
+                                                style={[styles.toggleBtn, currentStatus.evening === false && styles.toggleSelectedRed]}
+                                                onPress={() => setStatus('evening', currentStatus.evening === false ? undefined : false)}
+                                            >
+                                                <Text style={[styles.toggleText, currentStatus.evening === false && styles.textWhite]}>A</Text>
+                                            </TouchableOpacity>
 
-            <Modal
-                animationType="slide"
-                transparent={true}
-                visible={modalVisible}
-                onRequestClose={() => setModalVisible(false)}
-            >
-                <TouchableOpacity
-                    style={styles.modalOverlay}
-                    activeOpacity={1}
-                    onPress={() => setModalVisible(false)}
-                >
-                    <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalDate}>
-                                {selectedDate && new Date(selectedDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                            </Text>
-                            <TouchableOpacity onPress={() => setModalVisible(false)}>
-                                <Ionicons name="close" size={24} color="#333" />
-                            </TouchableOpacity>
+                                            <TouchableOpacity
+                                                style={[styles.toggleBtn, currentStatus.evening === true && styles.toggleSelectedGreen]}
+                                                onPress={() => setStatus('evening', currentStatus.evening === true ? undefined : true)}
+                                            >
+                                                <Text style={[styles.toggleText, currentStatus.evening === true && styles.textWhite]}>P</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    )}
+                                </View>
+                            )}
+
+                            {!activeWorker.shifts.morning && !activeWorker.shifts.evening && (
+                                <Text style={styles.hintText}>No shifts enabled. Go to Payment Settings to enable shifts.</Text>
+                            )}
+
+                            {isMilk && (
+                                <Text style={styles.hintText}>Adjust quantity in 0.25L increments.</Text>
+                            )}
+
                         </View>
-                        <Text style={styles.modalSub}>Mark attendance for this day</Text>
-
-                        {/* Morning Row */}
-                        {activeWorker.shifts.morning && (
-                            <View style={styles.shiftRow}>
-                                <View style={styles.shiftLabelRow}>
-                                    <Ionicons name="sunny-outline" size={20} color="#FFA000" />
-                                    <Text style={styles.shiftLabel}>Morning</Text>
-                                </View>
-                                <View style={styles.toggleGroup}>
-                                    <TouchableOpacity
-                                        style={[styles.toggleBtn, currentStatus.morning === false && styles.toggleSelectedRed]}
-                                        onPress={() => setStatus('morning', currentStatus.morning === false ? undefined : false)}
-                                    >
-                                        <Text style={[styles.toggleText, currentStatus.morning === false && styles.textWhite]}>A</Text>
-                                    </TouchableOpacity>
-
-                                    <TouchableOpacity
-                                        style={[styles.toggleBtn, currentStatus.morning === true && styles.toggleSelectedGreen]}
-                                        onPress={() => setStatus('morning', currentStatus.morning === true ? undefined : true)}
-                                    >
-                                        <Text style={[styles.toggleText, currentStatus.morning === true && styles.textWhite]}>P</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        )}
-
-                        {/* Evening Row */}
-                        {activeWorker.shifts.evening && (
-                            <View style={styles.shiftRow}>
-                                <View style={styles.shiftLabelRow}>
-                                    <Ionicons name="moon-outline" size={20} color="#3F51B5" />
-                                    <Text style={styles.shiftLabel}>Evening</Text>
-                                </View>
-                                <View style={styles.toggleGroup}>
-                                    <TouchableOpacity
-                                        style={[styles.toggleBtn, currentStatus.evening === false && styles.toggleSelectedRed]}
-                                        onPress={() => setStatus('evening', currentStatus.evening === false ? undefined : false)}
-                                    >
-                                        <Text style={[styles.toggleText, currentStatus.evening === false && styles.textWhite]}>A</Text>
-                                    </TouchableOpacity>
-
-                                    <TouchableOpacity
-                                        style={[styles.toggleBtn, currentStatus.evening === true && styles.toggleSelectedGreen]}
-                                        onPress={() => setStatus('evening', currentStatus.evening === true ? undefined : true)}
-                                    >
-                                        <Text style={[styles.toggleText, currentStatus.evening === true && styles.textWhite]}>P</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        )}
-
-                        {!activeWorker.shifts.morning && !activeWorker.shifts.evening && (
-                            <Text style={styles.hintText}>No shifts enabled. Go to Payment Settings to enable shifts.</Text>
-                        )}
-
-                    </View>
-                </TouchableOpacity>
-            </Modal>
-        </SafeAreaView>
+                    </TouchableOpacity>
+                </Modal>
+            </SafeAreaView>
+        </BackgroundWrapper>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
-        padding: 20
+        backgroundColor: '#fff'
+    },
+    milkBackground: {
+        backgroundColor: '#F1F8E9'
     },
     headerTitle: {
         fontSize: 22,
@@ -322,7 +373,23 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: '#999',
         marginTop: 10
-    }
+    },
+    qtyBtn: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: '#fff',
+        borderWidth: 1,
+        borderColor: '#ddd',
+        justifyContent: 'center',
+        alignItems: 'center'
+    },
+    qtyText: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        minWidth: 50,
+        textAlign: 'center'
+    },
 });
 
 export default CalendarScreen;

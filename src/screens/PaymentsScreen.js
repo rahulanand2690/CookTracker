@@ -5,124 +5,202 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 const PaymentsScreen = () => {
-    const { activeWorker, updateWorkerSettings, getStatsForMonth, workerMeta } = useContext(AppContext);
+    const { activeWorkerId, activeWorker, updateWorkerSettings, getStatsForMonth, workerMeta } = useContext(AppContext);
     const now = new Date();
 
-    const [editingSalary, setEditingSalary] = useState(activeWorker.salary.toString());
+    const isMilk = activeWorkerId === 'milk';
+
+    const [editingSalary, setEditingSalary] = useState(activeWorker.salary?.toString() || '0');
+    const [ratePerLitre, setRatePerLitre] = useState(activeWorker.ratePerLitre?.toString() || '0');
+    const [defaultLitre, setDefaultLitre] = useState(activeWorker.defaultLitre?.toString() || '1');
     const [shifts, setShifts] = useState(activeWorker.shifts);
 
     useEffect(() => {
-        setEditingSalary(activeWorker.salary.toString());
+        setEditingSalary(activeWorker.salary?.toString() || '0');
+        setRatePerLitre(activeWorker.ratePerLitre?.toString() || '0');
+        setDefaultLitre(activeWorker.defaultLitre?.toString() || '1');
         setShifts(activeWorker.shifts);
     }, [activeWorker]);
 
     const stats = getStatsForMonth(now.getFullYear(), now.getMonth() + 1);
 
     const handleSave = () => {
-        // Validation: At least one shift must be enabled
         if (!shifts.morning && !shifts.evening) {
             Alert.alert('Error', 'At least one shift must be enabled.');
-            setShifts(activeWorker.shifts); // Revert
+            setShifts(activeWorker.shifts);
             return;
         }
-        updateWorkerSettings(editingSalary, shifts);
+
+        const settings = {
+            shifts,
+            salary: parseInt(editingSalary) || 0,
+            ratePerLitre: parseFloat(ratePerLitre) || 0,
+            defaultLitre: parseFloat(defaultLitre) || 1
+        };
+        updateWorkerSettings(settings);
     };
 
     const toggleShift = (shift) => {
         const newShifts = { ...shifts, [shift]: !shifts[shift] };
         setShifts(newShifts);
-        // We will save on "End Editing" of salary or separate button? 
-        // For UX, autosaving setting toggles usually better, but let's do it via effect or explicit save to keep salary sync
-        // Actually, let's call update immediately for toggles to feel responsive
-        updateWorkerSettings(editingSalary, newShifts);
+        // Immediate save for toggles
+        updateWorkerSettings({
+            shifts: newShifts,
+            salary: parseInt(editingSalary) || 0,
+            ratePerLitre: parseFloat(ratePerLitre) || 0,
+            defaultLitre: parseFloat(defaultLitre) || 1
+        });
+    };
+
+    const BackgroundWrapper = ({ children }) => {
+        if (isMilk) {
+            return <View style={[styles.container, styles.milkBackground]}>{children}</View>;
+        }
+        return <View style={styles.container}>{children}</View>;
     };
 
     const monthName = now.toLocaleDateString('en-US', { month: 'long' });
 
     return (
-        <SafeAreaView style={styles.container}>
-            <ScrollView contentContainerStyle={styles.content}>
-                <Text style={styles.header}>Payments & Settings</Text>
-                <Text style={styles.subHeader}>For: {workerMeta.name}</Text>
+        <BackgroundWrapper>
+            <SafeAreaView style={{ flex: 1 }}>
+                <ScrollView contentContainerStyle={styles.content}>
+                    <Text style={styles.header}>Payments & Settings</Text>
+                    <Text style={styles.subHeader}>For: {workerMeta.name}</Text>
 
-                <Text style={styles.sectionTitle}>Shift Configuration</Text>
-                <View style={styles.configContainer}>
-                    <View style={styles.shiftToggleRow}>
-                        <View style={styles.shiftLabelGroup}>
-                            <Ionicons name="sunny" size={20} color="#FFA000" />
-                            <Text style={styles.toggleLabel}>Morning Shift</Text>
+                    <Text style={styles.sectionTitle}>Shift Configuration</Text>
+                    <View style={styles.configContainer}>
+                        <View style={styles.shiftToggleRow}>
+                            <View style={styles.shiftLabelGroup}>
+                                <Ionicons name="sunny" size={20} color="#FFA000" />
+                                <Text style={styles.toggleLabel}>Morning Shift</Text>
+                            </View>
+                            <Switch
+                                value={shifts.morning}
+                                onValueChange={() => toggleShift('morning')}
+                                trackColor={{ false: "#767577", true: "#ffcc80" }}
+                                thumbColor={shifts.morning ? "#FFA000" : "#f4f3f4"}
+                            />
                         </View>
-                        <Switch
-                            value={shifts.morning}
-                            onValueChange={() => toggleShift('morning')}
-                            trackColor={{ false: "#767577", true: "#ffcc80" }}
-                            thumbColor={shifts.morning ? "#FFA000" : "#f4f3f4"}
-                        />
-                    </View>
-                    <View style={styles.divider} />
-                    <View style={styles.shiftToggleRow}>
-                        <View style={styles.shiftLabelGroup}>
-                            <Ionicons name="moon" size={20} color="#3F51B5" />
-                            <Text style={styles.toggleLabel}>Evening Shift</Text>
-                        </View>
-                        <Switch
-                            value={shifts.evening}
-                            onValueChange={() => toggleShift('evening')}
-                            trackColor={{ false: "#767577", true: "#9fa8da" }}
-                            thumbColor={shifts.evening ? "#3F51B5" : "#f4f3f4"}
-                        />
-                    </View>
-                </View>
-
-                <Text style={styles.sectionTitleWithOptions}>Salary Details</Text>
-
-                <View style={styles.controlsRow}>
-                    <View style={styles.controlGroup}>
-                        <Text style={styles.label}>Month</Text>
-                        <View style={styles.inputContainer}>
-                            <Text style={styles.inputValue}>{monthName}</Text>
-                        </View>
-                    </View>
-                    <View style={styles.controlGroup}>
-                        <Text style={styles.label}>Base Salary</Text>
-                        <View style={[styles.inputContainer, styles.editableInput]}>
-                            <Text style={styles.currencySymbol}>₹</Text>
-                            <TextInput
-                                value={editingSalary}
-                                onChangeText={setEditingSalary}
-                                keyboardType="numeric"
-                                onEndEditing={handleSave}
-                                style={styles.textInput}
+                        <View style={styles.divider} />
+                        <View style={styles.shiftToggleRow}>
+                            <View style={styles.shiftLabelGroup}>
+                                <Ionicons name="moon" size={20} color="#3F51B5" />
+                                <Text style={styles.toggleLabel}>Evening Shift</Text>
+                            </View>
+                            <Switch
+                                value={shifts.evening}
+                                onValueChange={() => toggleShift('evening')}
+                                trackColor={{ false: "#767577", true: "#9fa8da" }}
+                                thumbColor={shifts.evening ? "#3F51B5" : "#f4f3f4"}
                             />
                         </View>
                     </View>
-                </View>
 
-                <Text style={styles.sectionTitle}>Calculated Breakdown</Text>
-                <View style={styles.breakdownRow}>
-                    <View style={styles.breakdownCard}>
-                        <Text style={styles.breakdownLabel}>Total Shifts</Text>
-                        <Text style={styles.breakdownValue}>{stats.maxShifts}</Text>
-                        <Text style={styles.breakdownSub}>possible</Text>
+                    <Text style={styles.sectionTitleWithOptions}>Cost Settings</Text>
+
+                    <View style={styles.controlsRow}>
+                        <View style={styles.controlGroup}>
+                            <Text style={styles.label}>Month</Text>
+                            <View style={styles.inputContainer}>
+                                <Text style={styles.inputValue}>{monthName}</Text>
+                            </View>
+                        </View>
+
+                        {!isMilk && (
+                            <View style={styles.controlGroup}>
+                                <Text style={styles.label}>Base Salary</Text>
+                                <View style={[styles.inputContainer, styles.editableInput]}>
+                                    <Text style={styles.currencySymbol}>₹</Text>
+                                    <TextInput
+                                        value={editingSalary}
+                                        onChangeText={setEditingSalary}
+                                        keyboardType="numeric"
+                                        onEndEditing={handleSave}
+                                        style={styles.textInput}
+                                    />
+                                </View>
+                            </View>
+                        )}
+
+                        {isMilk && (
+                            <View style={styles.controlGroup}>
+                                <Text style={styles.label}>Rate / Litre</Text>
+                                <View style={[styles.inputContainer, styles.editableInput]}>
+                                    <Text style={styles.currencySymbol}>₹</Text>
+                                    <TextInput
+                                        value={ratePerLitre}
+                                        onChangeText={setRatePerLitre}
+                                        keyboardType="numeric"
+                                        onEndEditing={handleSave}
+                                        style={styles.textInput}
+                                    />
+                                </View>
+                            </View>
+                        )}
                     </View>
-                    <View style={styles.breakdownCard}>
-                        <Text style={styles.breakdownLabel}>Completed</Text>
-                        <Text style={styles.breakdownValue}>{stats.totalPresentShifts}</Text>
-                        <Text style={styles.breakdownSub}>shifts</Text>
+
+                    {isMilk && (
+                        <View style={styles.rowSingle}>
+                            <Text style={styles.label}>Default Daily Litres</Text>
+                            <View style={[styles.inputContainer, styles.editableInput]}>
+                                <Ionicons name="beaker" size={16} color="#333" style={{ marginRight: 5 }} />
+                                <TextInput
+                                    value={defaultLitre}
+                                    onChangeText={setDefaultLitre}
+                                    keyboardType="numeric"
+                                    onEndEditing={handleSave}
+                                    style={styles.textInput}
+                                />
+                                <Text style={styles.unitText}>L</Text>
+                            </View>
+                            <Text style={styles.hint}>Used when marking generic 'Present'</Text>
+                        </View>
+                    )}
+
+                    <Text style={styles.sectionTitle}>Calculated Breakdown</Text>
+                    <View style={styles.breakdownRow}>
+                        {!isMilk ? (
+                            <>
+                                <View style={styles.breakdownCard}>
+                                    <Text style={styles.breakdownLabel}>Total Shifts</Text>
+                                    <Text style={styles.breakdownValue}>{stats.maxShifts}</Text>
+                                    <Text style={styles.breakdownSub}>possible</Text>
+                                </View>
+                                <View style={styles.breakdownCard}>
+                                    <Text style={styles.breakdownLabel}>Completed</Text>
+                                    <Text style={styles.breakdownValue}>{stats.totalPresentShifts}</Text>
+                                    <Text style={styles.breakdownSub}>shifts</Text>
+                                </View>
+                            </>
+                        ) : (
+                            <>
+                                <View style={styles.breakdownCard}>
+                                    <Text style={styles.breakdownLabel}>Working Days</Text>
+                                    <Text style={styles.breakdownValue}>{stats.workingDays}</Text>
+                                    <Text style={styles.breakdownSub}>days (excl Sun)</Text>
+                                </View>
+                                <View style={styles.breakdownCard}>
+                                    <Text style={styles.breakdownLabel}>Total Milk</Text>
+                                    <Text style={styles.breakdownValue}>{stats.totalLitres}</Text>
+                                    <Text style={styles.breakdownSub}>Litres</Text>
+                                </View>
+                            </>
+                        )}
                     </View>
-                </View>
 
-                <View style={styles.totalCard}>
-                    <Text style={styles.totalLabel}>Total Payable</Text>
-                    <Text style={styles.totalValue}>₹{stats.totalSalary}</Text>
+                    <View style={styles.totalCard}>
+                        <Text style={styles.totalLabel}>Total Payable</Text>
+                        <Text style={styles.totalValue}>₹{stats.totalSalary}</Text>
 
-                    <TouchableOpacity style={styles.payButton} onPress={() => Alert.alert('Payment', 'Record Payment feature coming soon!')}>
-                        <Text style={styles.payButtonText}>Record Payment</Text>
-                    </TouchableOpacity>
-                </View>
+                        <TouchableOpacity style={styles.payButton} onPress={() => Alert.alert('Payment', 'Record Payment feature coming soon!')}>
+                            <Text style={styles.payButtonText}>Record Payment</Text>
+                        </TouchableOpacity>
+                    </View>
 
-            </ScrollView>
-        </SafeAreaView>
+                </ScrollView>
+            </SafeAreaView>
+        </BackgroundWrapper>
     );
 };
 
@@ -130,6 +208,9 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#fff'
+    },
+    milkBackground: {
+        backgroundColor: '#F1F8E9'
     },
     content: {
         padding: 20
@@ -192,6 +273,9 @@ const styles = StyleSheet.create({
         gap: 15,
         marginBottom: 20
     },
+    rowSingle: {
+        marginBottom: 20
+    },
     controlGroup: {
         flex: 1
     },
@@ -226,6 +310,16 @@ const styles = StyleSheet.create({
         flex: 1,
         fontWeight: 'bold'
     },
+    unitText: {
+        fontSize: 14,
+        color: '#666',
+        marginLeft: 5
+    },
+    hint: {
+        fontSize: 12,
+        color: '#999',
+        marginTop: 5
+    },
     breakdownRow: {
         flexDirection: 'row',
         gap: 15,
@@ -237,7 +331,7 @@ const styles = StyleSheet.create({
         borderRadius: 15,
         borderWidth: 1,
         borderColor: '#eee',
-        backgroundColor: '#fff'
+        backgroundColor: 'rgba(255,255,255,0.9)'
     },
     breakdownLabel: {
         fontSize: 14,

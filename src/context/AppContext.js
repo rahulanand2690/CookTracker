@@ -13,14 +13,16 @@ const WORKER_TYPES = {
 const INITIAL_WORKER_STATE = {
     attendance: {},
     salary: 0,
-    shifts: { morning: true, evening: true } // Default to both enabled
+    ratePerLitre: 0,
+    defaultLitre: 1,
+    shifts: { morning: true, evening: true }
 };
 
 export const AppProvider = ({ children }) => {
     const [workers, setWorkers] = useState({
         cook: { ...INITIAL_WORKER_STATE, salary: 6000 },
         maid: { ...INITIAL_WORKER_STATE, salary: 3000 },
-        milk: { ...INITIAL_WORKER_STATE, salary: 1500 }
+        milk: { ...INITIAL_WORKER_STATE, salary: 0, ratePerLitre: 60, defaultLitre: 1 }
     });
     const [activeWorkerId, setActiveWorkerId] = useState('cook');
     const [isLoading, setIsLoading] = useState(true);
@@ -31,23 +33,29 @@ export const AppProvider = ({ children }) => {
 
     const loadData = async () => {
         try {
-            const storedWorkers = await AsyncStorage.getItem('tracker_workers_v2'); // Increment version to force fresh or migrated read
+            const storedWorkers = await AsyncStorage.getItem('tracker_workers_v3'); // Increment version
 
             if (storedWorkers) {
                 setWorkers(JSON.parse(storedWorkers));
             } else {
                 // Fallback or Migration
-                const oldWorkers = await AsyncStorage.getItem('tracker_workers');
+                const oldWorkers = await AsyncStorage.getItem('tracker_workers_v2');
                 if (oldWorkers) {
                     const parsed = JSON.parse(oldWorkers);
-                    // Migrate old data to include defaults for shifts if missing
                     const migrated = {};
                     Object.keys(parsed).forEach(key => {
                         migrated[key] = {
                             ...INITIAL_WORKER_STATE,
                             ...parsed[key],
-                            shifts: parsed[key].shifts || { morning: true, evening: true }
+                            // Preserve existing values but ensure defaults for new fields
+                            ratePerLitre: parsed[key].ratePerLitre || 0,
+                            defaultLitre: parsed[key].defaultLitre || 1
                         };
+
+                        // Milk specific defaults if migrating from fresh v2
+                        if (key === 'milk' && !parsed[key].ratePerLitre) {
+                            migrated[key].ratePerLitre = 60;
+                        }
                     });
                     setWorkers(migrated);
                 }
@@ -61,13 +69,14 @@ export const AppProvider = ({ children }) => {
 
     const saveWorkers = async (newWorkers) => {
         setWorkers(newWorkers);
-        await AsyncStorage.setItem('tracker_workers_v2', JSON.stringify(newWorkers));
+        await AsyncStorage.setItem('tracker_workers_v3', JSON.stringify(newWorkers));
     };
 
     const updateAttendance = (date, status) => {
         const currentWorker = workers[activeWorkerId];
         const newAttendance = { ...currentWorker.attendance, [date]: status };
 
+        // Clean up if completely unmarked (undefined)
         if (status.morning === undefined && status.evening === undefined) {
             delete newAttendance[date];
         }
@@ -82,14 +91,13 @@ export const AppProvider = ({ children }) => {
         saveWorkers(newWorkers);
     };
 
-    const updateWorkerSettings = (salary, shifts) => {
-        const numSalary = parseInt(salary) || 0;
+    const updateWorkerSettings = (settings) => {
+        // settings object contains whatever fields we want to update (salary, shifts, ratePerLitre, etc.)
         const newWorkers = {
             ...workers,
             [activeWorkerId]: {
                 ...workers[activeWorkerId],
-                salary: numSalary,
-                shifts: shifts
+                ...settings
             }
         };
         saveWorkers(newWorkers);
@@ -109,29 +117,24 @@ export const AppProvider = ({ children }) => {
                 return obj;
             }, {});
 
-        const stats = calculateSalary(currentMonthAttendance, year, month, currentWorker.shifts);
-
-        // Calculate Daily Rate based on Enabled Shifts
-        // If 1 shift/day: maxPossibleShifts = workingDays
-        // If 2 shifts/day: maxPossibleShifts = workingDays * 2
-
-        let shiftsPerDay = 0;
-        if (currentWorker.shifts.morning) shiftsPerDay++;
-        if (currentWorker.shifts.evening) shiftsPerDay++;
-
-        // Avoid division by zero
-        if (shiftsPerDay === 0) shiftsPerDay = 1;
-
-        const maxShifts = stats.workingDays * shiftsPerDay;
-        const payPerShift = maxShifts > 0 ? currentWorker.salary / maxShifts : 0;
-
-        const totalPayable = stats.totalPresentShifts * payPerShift;
+        // Pass worker type and specific settings to calculator
+        const stats = calculateSalary(
+            currentMonthAttendance,
+            year,
+            month,
+            currentWorker.shifts,
+            activeWorkerId,
+            {
+                ratePerLitre: currentWorker.ratePerLitre,
+                defaultLitre: currentWorker.defaultLitre,
+                salary: currentWorker.salary
+            }
+        );
 
         return {
             ...stats,
             monthlySalary: currentWorker.salary,
-            totalSalary: Math.round(totalPayable) || 0,
-            maxShifts
+            // totalSalary comes from calculator now
         };
     };
 
