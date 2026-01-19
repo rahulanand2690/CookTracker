@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 const MILK_BG = require('../../assets/images/milk_bg.jpg');
 const MAID_BG = require('../../assets/images/maid_bg.jpg');
+const COOK_BG = require('../../assets/images/cook_bg.jpg');
 
 const CalendarScreen = () => {
     const { activeWorker, activeWorkerId, updateAttendance } = useContext(AppContext);
@@ -18,6 +19,7 @@ const CalendarScreen = () => {
 
     const isMilk = activeWorkerId === 'milk';
     const isMaid = activeWorkerId === 'maid';
+    const isCook = activeWorkerId === 'cook';
 
     const handleDayPress = (day) => {
         if (!day || !day.dateString) return;
@@ -95,6 +97,15 @@ const CalendarScreen = () => {
         if (isMaid) {
             return (
                 <ImageBackground source={MAID_BG} style={styles.bgImage} resizeMode="cover">
+                    <View style={styles.overlay}>
+                        {children}
+                    </View>
+                </ImageBackground>
+            );
+        }
+        if (isCook) {
+            return (
+                <ImageBackground source={COOK_BG} style={styles.bgImage} resizeMode="cover">
                     <View style={styles.overlay}>
                         {children}
                     </View>

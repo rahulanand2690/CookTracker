@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 // Using the newly moved asset
 const MILK_BG = require('../../assets/images/milk_bg.jpg');
 const MAID_BG = require('../../assets/images/maid_bg.jpg');
+const COOK_BG = require('../../assets/images/cook_bg.jpg');
 
 const HomeScreen = () => {
     const { activeWorkerId, setActiveWorkerId, activeWorker, updateAttendance, getStatsForMonth, WORKER_TYPES } = useContext(AppContext);
@@ -18,6 +19,7 @@ const HomeScreen = () => {
 
     const isMilk = activeWorkerId === 'milk';
     const isMaid = activeWorkerId === 'maid';
+    const isCook = activeWorkerId === 'cook';
 
     const toggleShift = (shift) => {
         let newVal; // Undefined -> Present (true) -> Absent (false) -> Undefined
@@ -127,6 +129,15 @@ const HomeScreen = () => {
         if (isMaid) {
             return (
                 <ImageBackground source={MAID_BG} style={styles.bgImage} resizeMode="cover">
+                    <View style={styles.overlay}>
+                        {children}
+                    </View>
+                </ImageBackground>
+            );
+        }
+        if (isCook) {
+            return (
+                <ImageBackground source={COOK_BG} style={styles.bgImage} resizeMode="cover">
                     <View style={styles.overlay}>
                         {children}
                     </View>
