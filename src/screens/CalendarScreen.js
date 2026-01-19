@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 const MILK_BG = require('../../assets/images/milk_bg.jpg');
+const MAID_BG = require('../../assets/images/maid_bg.jpg');
 
 const CalendarScreen = () => {
     const { activeWorker, activeWorkerId, updateAttendance } = useContext(AppContext);
@@ -16,6 +17,7 @@ const CalendarScreen = () => {
     const [modalVisible, setModalVisible] = useState(false);
 
     const isMilk = activeWorkerId === 'milk';
+    const isMaid = activeWorkerId === 'maid';
 
     const handleDayPress = (day) => {
         if (!day || !day.dateString) return;
@@ -84,6 +86,15 @@ const CalendarScreen = () => {
         if (isMilk) {
             return (
                 <ImageBackground source={MILK_BG} style={styles.bgImage} resizeMode="cover">
+                    <View style={styles.overlay}>
+                        {children}
+                    </View>
+                </ImageBackground>
+            );
+        }
+        if (isMaid) {
+            return (
+                <ImageBackground source={MAID_BG} style={styles.bgImage} resizeMode="cover">
                     <View style={styles.overlay}>
                         {children}
                     </View>

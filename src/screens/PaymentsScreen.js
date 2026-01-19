@@ -5,12 +5,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 const MILK_BG = require('../../assets/images/milk_bg.jpg');
+const MAID_BG = require('../../assets/images/maid_bg.jpg');
 
 const PaymentsScreen = () => {
     const { activeWorkerId, activeWorker, updateWorkerSettings, getStatsForMonth, workerMeta } = useContext(AppContext);
     const now = new Date();
 
     const isMilk = activeWorkerId === 'milk';
+    const isMaid = activeWorkerId === 'maid';
 
     const [editingSalary, setEditingSalary] = useState(activeWorker.salary?.toString() || '0');
     const [ratePerLitre, setRatePerLitre] = useState(activeWorker.ratePerLitre?.toString() || '0');
@@ -74,6 +76,15 @@ const PaymentsScreen = () => {
         if (isMilk) {
             return (
                 <ImageBackground source={MILK_BG} style={styles.bgImage} resizeMode="cover">
+                    <View style={styles.overlay}>
+                        {children}
+                    </View>
+                </ImageBackground>
+            );
+        }
+        if (isMaid) {
+            return (
+                <ImageBackground source={MAID_BG} style={styles.bgImage} resizeMode="cover">
                     <View style={styles.overlay}>
                         {children}
                     </View>
