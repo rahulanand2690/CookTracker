@@ -9,6 +9,64 @@ const MILK_BG = require('../../assets/images/milk_bg.jpg');
 const MAID_BG = require('../../assets/images/maid_bg.jpg');
 const COOK_BG = require('../../assets/images/cook_bg.jpg');
 
+const BackgroundWrapper = ({ children, activeWorkerId }) => {
+    const isMilk = activeWorkerId === 'milk';
+    const isMaid = activeWorkerId === 'maid';
+    const isCook = activeWorkerId === 'cook';
+
+    if (isMilk) {
+        return (
+            <ImageBackground source={MILK_BG} style={styles.bgImage} resizeMode="cover">
+                <View style={styles.overlay}>
+                    {children}
+                </View>
+            </ImageBackground>
+        );
+    }
+    if (isMaid) {
+        return (
+            <ImageBackground source={MAID_BG} style={styles.bgImage} resizeMode="cover">
+                <View style={styles.overlay}>
+                    {children}
+                </View>
+            </ImageBackground>
+        );
+    }
+    if (isCook) {
+        return (
+            <ImageBackground source={COOK_BG} style={styles.bgImage} resizeMode="cover">
+                <View style={styles.overlay}>
+                    {children}
+                </View>
+            </ImageBackground>
+        );
+    }
+    return <View style={styles.container}>{children}</View>;
+};
+
+const StatusText = ({ status, isMilk, activeWorker }) => {
+    if (isMilk && typeof status === 'number') return <Text style={[styles.shiftStatus, { color: '#4CAF50' }]}>{status} Litres</Text>;
+    if (status === true) return <Text style={[styles.shiftStatus, { color: '#4CAF50' }]}>{isMilk ? `${activeWorker.defaultLitre} Litres (Default)` : 'Marked Present'}</Text>;
+    if (status === false) return <Text style={[styles.shiftStatus, { color: '#EF5350' }]}>Marked Absent</Text>;
+    return <Text style={[styles.shiftStatus, { color: '#999' }]}>Not marked yet</Text>;
+};
+
+const MilkControls = ({ shift, todayStatus, activeWorker, updateMilkLimit }) => {
+    const currentQty = typeof todayStatus[shift] === 'number' ? todayStatus[shift] : (todayStatus[shift] === true ? activeWorker.defaultLitre : 0);
+
+    return (
+        <View style={styles.qtyControls}>
+            <TouchableOpacity style={styles.qtyBtn} onPress={() => updateMilkLimit(shift, -0.25)}>
+                <Ionicons name="remove" size={20} color="#555" />
+            </TouchableOpacity>
+            <Text style={styles.qtyText}>{currentQty} L</Text>
+            <TouchableOpacity style={styles.qtyBtn} onPress={() => updateMilkLimit(shift, 0.25)}>
+                <Ionicons name="add" size={20} color="#555" />
+            </TouchableOpacity>
+        </View>
+    );
+};
+
 const HomeScreen = () => {
     const { activeWorkerId, setActiveWorkerId, activeWorker, updateAttendance, getStatsForMonth, WORKER_TYPES } = useContext(AppContext);
     const now = new Date();
@@ -18,67 +76,29 @@ const HomeScreen = () => {
     const todayStatus = activeWorker.attendance[dateStr] || { morning: undefined, evening: undefined };
 
     const isMilk = activeWorkerId === 'milk';
-    const isMaid = activeWorkerId === 'maid';
-    const isCook = activeWorkerId === 'cook';
 
-    const toggleShift = (shift) => {
-        let newVal; // Undefined -> Present (true) -> Absent (false) -> Undefined
+    const toggleShift = React.useCallback((shift) => {
+        let newVal;
         if (todayStatus[shift] === undefined) newVal = true;
         else if (todayStatus[shift] === true) newVal = false;
         else newVal = undefined;
 
         const newStatus = { ...todayStatus, [shift]: newVal };
         updateAttendance(dateStr, newStatus);
-    };
+    }, [todayStatus, dateStr, updateAttendance]);
 
-    const updateMilkLimit = (shift, change) => {
+    const updateMilkLimit = React.useCallback((shift, change) => {
         let currentQty;
-        // If it's a number, use it.
         if (typeof todayStatus[shift] === 'number') {
             currentQty = todayStatus[shift];
         } else if (todayStatus[shift] === true) {
-            // If marked 'true' (Present), treat as default litre
             currentQty = activeWorker.defaultLitre;
         } else {
-            // If undefined (not marked) or false (Absent)
-            // We want the *first* click (especially +) to start at defaultLitre
-            // But if we are adding 0.25 to "nothing", logical expectations:
-            // Option A: 0 + 0.25 = 0.25
-            // Option B: Jump to Default (e.g. 1.0)
-            // User req: "start with default Daily Litres ... instead of 0 litres"
-
-            // If we assume "start with" means the base value before adding 'change'
-            // If nothing is marked, base is 0. So 0 + 0.25 = 0.25. 
-            // But user wants "start with default".
-            // Maybe they mean: If I click '+', it should become (Default + 0.25)? 
-            // Or if I click '+', it becomes Default immediately? -> No, that's what 'Present' toggle is for.
-            // Likely: The "starting point" is Default. 
-            // So if Default is 1L.
-            // If I have nothing, and click '+', it becomes 1.25L ?? (1L default + 0.25)
-            // Or does it become 1L? 
-            // Let's implement: If Unmarked/Absent -> Treat 'current' as Default Litre.
             currentQty = 0;
         }
 
-        // Wait, if I treat 'current' as Default (1L), then 1L + 0.25 = 1.25L.
-        // It skips 0.25, 0.5, 0.75... 
-        // Re-reading: "litres should start with default Daily Litres ... instead of 0 litres"
-        // This implies the standard daily delivery is X. Adjustments are from X.
-        // So yes, if I have nothing recorded, assume I got the usual (Default) and want to adjust it.
-
         if (typeof todayStatus[shift] !== 'number' && todayStatus[shift] !== true) {
-            // First interaction on an empty/absent shift
-            // "Start with default"
             currentQty = activeWorker.defaultLitre;
-
-            // BUT, if I just clicked '+', do I want (Default + 0.25) or just (Default)?
-            // Usually controls are +/-. 
-            // If the display shows "0 L" (calculated), and I click +, it should go to 0.25.
-            // But user says "start with Default ... instead of 0".
-            // So display should probably show Default initially? No, that would be confusing if attendance is unmarked.
-
-            // INTERPRETATION: When I interact with the +/- controls, Initialize at Default.
-            // So: New Value = Default + Change.
         }
 
         let newQty = currentQty + change;
@@ -86,69 +106,18 @@ const HomeScreen = () => {
 
         const newStatus = { ...todayStatus, [shift]: newQty };
         updateAttendance(dateStr, newStatus);
-    };
+    }, [todayStatus, activeWorker.defaultLitre, dateStr, updateAttendance]);
 
     const formattedDate = new Intl.DateTimeFormat('en-US', {
         weekday: 'long', month: 'long', day: 'numeric'
     }).format(now);
 
-    const renderStatusText = (status) => {
-        if (isMilk && typeof status === 'number') return { text: `${status} Litres`, color: '#4CAF50' };
-        if (status === true) return { text: isMilk ? `${activeWorker.defaultLitre} Litres (Default)` : 'Marked Present', color: '#4CAF50' };
-        if (status === false) return { text: 'Marked Absent', color: '#EF5350' };
-        return { text: 'Not marked yet', color: '#999' };
-    };
 
-    const renderMilkControls = (shift) => {
-        // Correctly read 'true' as defaultLitre for display
-        const currentQty = typeof todayStatus[shift] === 'number' ? todayStatus[shift] : (todayStatus[shift] === true ? activeWorker.defaultLitre : 0);
 
-        return (
-            <View style={styles.qtyControls}>
-                <TouchableOpacity style={styles.qtyBtn} onPress={() => updateMilkLimit(shift, -0.25)}>
-                    <Ionicons name="remove" size={20} color="#555" />
-                </TouchableOpacity>
-                <Text style={styles.qtyText}>{currentQty} L</Text>
-                <TouchableOpacity style={styles.qtyBtn} onPress={() => updateMilkLimit(shift, 0.25)}>
-                    <Ionicons name="add" size={20} color="#555" />
-                </TouchableOpacity>
-            </View>
-        );
-    };
 
-    const BackgroundWrapper = ({ children }) => {
-        if (isMilk) {
-            return (
-                <ImageBackground source={MILK_BG} style={styles.bgImage} resizeMode="cover">
-                    <View style={styles.overlay}>
-                        {children}
-                    </View>
-                </ImageBackground>
-            );
-        }
-        if (isMaid) {
-            return (
-                <ImageBackground source={MAID_BG} style={styles.bgImage} resizeMode="cover">
-                    <View style={styles.overlay}>
-                        {children}
-                    </View>
-                </ImageBackground>
-            );
-        }
-        if (isCook) {
-            return (
-                <ImageBackground source={COOK_BG} style={styles.bgImage} resizeMode="cover">
-                    <View style={styles.overlay}>
-                        {children}
-                    </View>
-                </ImageBackground>
-            );
-        }
-        return <View style={styles.container}>{children}</View>;
-    };
 
     return (
-        <BackgroundWrapper>
+        <BackgroundWrapper activeWorkerId={activeWorkerId}>
             <SafeAreaView style={{ flex: 1 }}>
                 <ScrollView contentContainerStyle={styles.scrollContent}>
 
@@ -203,12 +172,17 @@ const HomeScreen = () => {
                             </View>
                             <View style={styles.shiftInfo}>
                                 <Text style={styles.shiftTitle}>Morning</Text>
-                                <Text style={[styles.shiftStatus, { color: renderStatusText(todayStatus.morning).color }]}>
-                                    {renderStatusText(todayStatus.morning).text}
-                                </Text>
+                                <StatusText status={todayStatus.morning} isMilk={isMilk} activeWorker={activeWorker} />
                             </View>
 
-                            {isMilk ? renderMilkControls('morning') : (
+                            {isMilk ? (
+                                <MilkControls
+                                    shift="morning"
+                                    todayStatus={todayStatus}
+                                    activeWorker={activeWorker}
+                                    updateMilkLimit={updateMilkLimit}
+                                />
+                            ) : (
                                 <View style={[styles.checkCircle, todayStatus.morning === true && styles.completedCircle, todayStatus.morning === false && styles.absentCircle]}>
                                     {todayStatus.morning === true && <Ionicons name="checkmark" size={16} color="#fff" />}
                                     {todayStatus.morning === false && <Ionicons name="close" size={16} color="#fff" />}
@@ -228,11 +202,16 @@ const HomeScreen = () => {
                             </View>
                             <View style={styles.shiftInfo}>
                                 <Text style={styles.shiftTitle}>Evening</Text>
-                                <Text style={[styles.shiftStatus, { color: renderStatusText(todayStatus.evening).color }]}>
-                                    {renderStatusText(todayStatus.evening).text}
-                                </Text>
+                                <StatusText status={todayStatus.evening} isMilk={isMilk} activeWorker={activeWorker} />
                             </View>
-                            {isMilk ? renderMilkControls('evening') : (
+                            {isMilk ? (
+                                <MilkControls
+                                    shift="evening"
+                                    todayStatus={todayStatus}
+                                    activeWorker={activeWorker}
+                                    updateMilkLimit={updateMilkLimit}
+                                />
+                            ) : (
                                 <View style={[styles.checkCircle, todayStatus.evening === true && styles.completedCircle, todayStatus.evening === false && styles.absentCircle]}>
                                     {todayStatus.evening === true && <Ionicons name="checkmark" size={16} color="#fff" />}
                                     {todayStatus.evening === false && <Ionicons name="close" size={16} color="#fff" />}

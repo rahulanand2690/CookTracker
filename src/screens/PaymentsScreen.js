@@ -8,6 +8,41 @@ const MILK_BG = require('../../assets/images/milk_bg.jpg');
 const MAID_BG = require('../../assets/images/maid_bg.jpg');
 const COOK_BG = require('../../assets/images/cook_bg.jpg');
 
+const BackgroundWrapper = ({ children, activeWorkerId }) => {
+    const isMilk = activeWorkerId === 'milk';
+    const isMaid = activeWorkerId === 'maid';
+    const isCook = activeWorkerId === 'cook';
+
+    if (isMilk) {
+        return (
+            <ImageBackground source={MILK_BG} style={styles.bgImage} resizeMode="cover">
+                <View style={styles.overlay}>
+                    {children}
+                </View>
+            </ImageBackground>
+        );
+    }
+    if (isMaid) {
+        return (
+            <ImageBackground source={MAID_BG} style={styles.bgImage} resizeMode="cover">
+                <View style={styles.overlay}>
+                    {children}
+                </View>
+            </ImageBackground>
+        );
+    }
+    if (isCook) {
+        return (
+            <ImageBackground source={COOK_BG} style={styles.bgImage} resizeMode="cover">
+                <View style={styles.overlay}>
+                    {children}
+                </View>
+            </ImageBackground>
+        );
+    }
+    return <View style={styles.container}>{children}</View>;
+};
+
 const PaymentsScreen = () => {
     const { activeWorkerId, activeWorker, updateWorkerSettings, getStatsForMonth, workerMeta, addPayment } = useContext(AppContext);
     const [selectedDate, setSelectedDate] = useState(new Date());
@@ -35,13 +70,13 @@ const PaymentsScreen = () => {
 
     const stats = getStatsForMonth(selectedDate.getFullYear(), selectedDate.getMonth() + 1);
 
-    const changeMonth = (delta) => {
+    const changeMonth = React.useCallback((delta) => {
         const newDate = new Date(selectedDate);
         newDate.setMonth(newDate.getMonth() + delta);
         setSelectedDate(newDate);
-    };
+    }, [selectedDate]);
 
-    const handleSave = () => {
+    const handleSave = React.useCallback(() => {
         if (!shifts.morning && !shifts.evening) {
             Alert.alert('Error', 'At least one shift must be enabled.');
             setShifts(activeWorker.shifts);
@@ -56,12 +91,11 @@ const PaymentsScreen = () => {
             includeSundays
         };
         updateWorkerSettings(settings);
-    };
+    }, [shifts, editingSalary, ratePerLitre, defaultLitre, includeSundays, activeWorker.shifts, updateWorkerSettings]);
 
-    const toggleShift = (shift) => {
+    const toggleShift = React.useCallback((shift) => {
         const newShifts = { ...shifts, [shift]: !shifts[shift] };
         setShifts(newShifts);
-        // Immediate save for toggles
         updateWorkerSettings({
             shifts: newShifts,
             salary: parseInt(editingSalary) || 0,
@@ -69,9 +103,9 @@ const PaymentsScreen = () => {
             defaultLitre: parseFloat(defaultLitre) || 1,
             includeSundays
         });
-    };
+    }, [shifts, editingSalary, ratePerLitre, defaultLitre, includeSundays, updateWorkerSettings]);
 
-    const toggleSunday = () => {
+    const toggleSunday = React.useCallback(() => {
         const newVal = !includeSundays;
         setIncludeSundays(newVal);
         updateWorkerSettings({
@@ -81,60 +115,29 @@ const PaymentsScreen = () => {
             defaultLitre: parseFloat(defaultLitre) || 1,
             includeSundays: newVal
         });
-    }
+    }, [includeSundays, shifts, editingSalary, ratePerLitre, defaultLitre, updateWorkerSettings]);
 
-    const handlePaymentSubmit = () => {
+    const handlePaymentSubmit = React.useCallback(() => {
         const amount = parseInt(paymentAmount);
         if (isNaN(amount) || amount <= 0) {
             Alert.alert('Invalid Amount', 'Please enter a valid amount.');
             return;
         }
 
-        // Format date as YYYY-MM-DD for storage reference (or full timestamp)
-        // Storing as YYYY-MM-DD for monthly categorization
         const dateStr = selectedDate.toISOString().split('T')[0];
 
         addPayment(amount, dateStr);
         setPaymentModalVisible(false);
         setPaymentAmount('');
         Alert.alert('Success', 'Payment recorded successfully.');
-    };
+    }, [paymentAmount, selectedDate, addPayment]);
 
-    const BackgroundWrapper = ({ children }) => {
-        if (isMilk) {
-            return (
-                <ImageBackground source={MILK_BG} style={styles.bgImage} resizeMode="cover">
-                    <View style={styles.overlay}>
-                        {children}
-                    </View>
-                </ImageBackground>
-            );
-        }
-        if (isMaid) {
-            return (
-                <ImageBackground source={MAID_BG} style={styles.bgImage} resizeMode="cover">
-                    <View style={styles.overlay}>
-                        {children}
-                    </View>
-                </ImageBackground>
-            );
-        }
-        if (isCook) {
-            return (
-                <ImageBackground source={COOK_BG} style={styles.bgImage} resizeMode="cover">
-                    <View style={styles.overlay}>
-                        {children}
-                    </View>
-                </ImageBackground>
-            );
-        }
-        return <View style={styles.container}>{children}</View>;
-    };
+
 
     const monthName = selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
     return (
-        <BackgroundWrapper>
+        <BackgroundWrapper activeWorkerId={activeWorkerId}>
             <SafeAreaView style={{ flex: 1 }}>
                 <ScrollView contentContainerStyle={styles.content}>
                     <Text style={styles.header}>Payments & Settings</Text>
@@ -207,7 +210,7 @@ const PaymentsScreen = () => {
 
                         {!isMilk && (
                             <View style={styles.controlGroup}>
-                                <Text style={styles.label}>Base Salary</Text>
+                                <Text style={styles.label}>Monthly Salary</Text>
                                 <View style={[styles.inputContainer, styles.editableInput]}>
                                     <Text style={styles.currencySymbol}>₹</Text>
                                     <TextInput

@@ -9,6 +9,107 @@ const MILK_BG = require('../../assets/images/milk_bg.jpg');
 const MAID_BG = require('../../assets/images/maid_bg.jpg');
 const COOK_BG = require('../../assets/images/cook_bg.jpg');
 
+const BackgroundWrapper = ({ children, activeWorkerId }) => {
+    const isMilk = activeWorkerId === 'milk';
+    const isMaid = activeWorkerId === 'maid';
+    const isCook = activeWorkerId === 'cook';
+
+    if (isMilk) {
+        return (
+            <ImageBackground source={MILK_BG} style={styles.bgImage} resizeMode="cover">
+                <View style={styles.overlay}>
+                    {children}
+                </View>
+            </ImageBackground>
+        );
+    }
+    if (isMaid) {
+        return (
+            <ImageBackground source={MAID_BG} style={styles.bgImage} resizeMode="cover">
+                <View style={styles.overlay}>
+                    {children}
+                </View>
+            </ImageBackground>
+        );
+    }
+    if (isCook) {
+        return (
+            <ImageBackground source={COOK_BG} style={styles.bgImage} resizeMode="cover">
+                <View style={styles.overlay}>
+                    {children}
+                </View>
+            </ImageBackground>
+        );
+    }
+    return <View style={styles.container}>{children}</View>;
+};
+
+const AttendanceToggles = ({ shift, currentStatus, setStatus }) => {
+    return (
+        <View style={styles.toggleGroup}>
+            <TouchableOpacity
+                style={[styles.toggleBtn, currentStatus[shift] === false && styles.toggleSelectedRed]}
+                onPress={() => setStatus(shift, currentStatus[shift] === false ? undefined : false)}
+            >
+                <Text style={[styles.toggleText, currentStatus[shift] === false && styles.textWhite]}>A</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+                style={[styles.toggleBtn, currentStatus[shift] === true && styles.toggleSelectedGreen]}
+                onPress={() => setStatus(shift, currentStatus[shift] === true ? undefined : true)}
+            >
+                <Text style={[styles.toggleText, currentStatus[shift] === true && styles.textWhite]}>P</Text>
+            </TouchableOpacity>
+        </View>
+    );
+};
+
+const MilkControls = ({ shift, currentStatus, activeWorker, updateMilkLimit }) => {
+    const currentQty = typeof currentStatus[shift] === 'number' ? currentStatus[shift] : (currentStatus[shift] ? activeWorker.defaultLitre : 0);
+    return (
+        <View style={styles.toggleGroup}>
+            <TouchableOpacity style={styles.qtyBtn} onPress={() => updateMilkLimit(shift, -0.25)}>
+                <Ionicons name="remove" size={20} color="#555" />
+            </TouchableOpacity>
+            <Text style={styles.qtyText}>{currentQty} L</Text>
+            <TouchableOpacity style={styles.qtyBtn} onPress={() => updateMilkLimit(shift, 0.25)}>
+                <Ionicons name="add" size={20} color="#555" />
+            </TouchableOpacity>
+        </View>
+    );
+};
+
+const DayComponent = ({ date, state, activeWorker, handleDayPress, renderIndicator }) => {
+    const dateStr = date.dateString;
+    const status = (activeWorker && activeWorker.attendance && activeWorker.attendance[dateStr]) || {};
+    const dateObj = new Date(dateStr);
+    const isSunday = dateObj.getDay() === 0;
+    const isDisabled = state === 'disabled' || (isSunday && (!activeWorker || !activeWorker.includeSundays));
+
+    return (
+        <TouchableOpacity
+            style={[styles.dayContainer, isDisabled && styles.disabledDay]}
+            onPress={() => !isDisabled && handleDayPress(date)}
+            disabled={isDisabled}
+        >
+            <Text style={[
+                styles.dayText,
+                isSunday && styles.sundayText,
+                state === 'disabled' && styles.disabledText,
+                state === 'today' && styles.todayText
+            ]}>
+                {date.day}
+            </Text>
+            {!isSunday && (
+                <View style={styles.indicatorRow}>
+                    {activeWorker.shifts.morning && <View style={[styles.indicator, renderIndicator(status.morning)]} />}
+                    {activeWorker.shifts.evening && <View style={[styles.indicator, renderIndicator(status.evening)]} />}
+                </View>
+            )}
+        </TouchableOpacity>
+    );
+};
+
 const CalendarScreen = () => {
     const { activeWorker, activeWorkerId, updateAttendance, workerMeta } = useContext(AppContext);
 
@@ -18,31 +119,16 @@ const CalendarScreen = () => {
     const [modalVisible, setModalVisible] = useState(false);
 
     const isMilk = activeWorkerId === 'milk';
-    const isMaid = activeWorkerId === 'maid';
-    const isCook = activeWorkerId === 'cook';
 
-    const handleDayPress = (day) => {
+    const handleDayPress = React.useCallback((day) => {
         if (!day || !day.dateString) return;
 
-        // Prevent selecting Sundays ONLY if includeSundays is false
-        // Safely parse date
         const date = new Date(day.dateString);
         if (date.getDay() === 0 && (!activeWorker || !activeWorker.includeSundays)) return;
 
         setSelectedDate(day.dateString);
         setModalVisible(true);
-    };
-
-    const formatDate = (dateString) => {
-        if (!dateString) return '';
-        const date = new Date(dateString);
-        const options = { month: 'long', day: 'numeric', year: 'numeric' };
-        try {
-            return date.toLocaleDateString('en-US', options);
-        } catch (e) {
-            return dateString; // Fallback
-        }
-    };
+    }, [activeWorker]);
 
     const getDayStatus = (dateStr) => {
         if (!activeWorker || !activeWorker.attendance) return { morning: undefined, evening: undefined };
@@ -51,23 +137,22 @@ const CalendarScreen = () => {
 
     const currentStatus = selectedDate ? getDayStatus(selectedDate) : { morning: undefined, evening: undefined };
 
-    const setStatus = (shift, value) => {
+    const setStatus = React.useCallback((shift, value) => {
         if (selectedDate) {
             updateAttendance(selectedDate, {
                 ...currentStatus,
                 [shift]: value
             });
         }
-    };
+    }, [selectedDate, currentStatus, updateAttendance]);
 
-    const updateMilkLimit = (shift, change) => {
+    const updateMilkLimit = React.useCallback((shift, change) => {
         let currentQty;
         if (typeof currentStatus[shift] === 'number') {
             currentQty = currentStatus[shift];
         } else if (currentStatus[shift] === true) {
             currentQty = activeWorker.defaultLitre;
         } else {
-            // "Start with default" logic
             currentQty = activeWorker.defaultLitre;
         }
 
@@ -75,63 +160,17 @@ const CalendarScreen = () => {
         if (newQty < 0) newQty = 0;
 
         setStatus(shift, newQty);
-    };
+    }, [currentStatus, activeWorker.defaultLitre, setStatus]);
 
-    const renderIndicator = (status) => {
+    const renderIndicator = React.useCallback((status) => {
         if (typeof status === 'number') return styles.bgGreen; // Custom quantity
         if (status === true) return styles.bgGreen; // Present (Default)
         if (status === false) return styles.bgRed;   // Absent
         return styles.bgGray;                        // Not Marked
-    };
-
-    const BackgroundWrapper = ({ children }) => {
-        if (isMilk) {
-            return (
-                <ImageBackground source={MILK_BG} style={styles.bgImage} resizeMode="cover">
-                    <View style={styles.overlay}>
-                        {children}
-                    </View>
-                </ImageBackground>
-            );
-        }
-        if (isMaid) {
-            return (
-                <ImageBackground source={MAID_BG} style={styles.bgImage} resizeMode="cover">
-                    <View style={styles.overlay}>
-                        {children}
-                    </View>
-                </ImageBackground>
-            );
-        }
-        if (isCook) {
-            return (
-                <ImageBackground source={COOK_BG} style={styles.bgImage} resizeMode="cover">
-                    <View style={styles.overlay}>
-                        {children}
-                    </View>
-                </ImageBackground>
-            );
-        }
-        return <View style={styles.container}>{children}</View>;
-    };
-
-    const renderMilkControls = (shift) => {
-        const currentQty = typeof currentStatus[shift] === 'number' ? currentStatus[shift] : (currentStatus[shift] ? activeWorker.defaultLitre : 0);
-        return (
-            <View style={styles.toggleGroup}>
-                <TouchableOpacity style={styles.qtyBtn} onPress={() => updateMilkLimit(shift, -0.25)}>
-                    <Ionicons name="remove" size={20} color="#555" />
-                </TouchableOpacity>
-                <Text style={styles.qtyText}>{currentQty} L</Text>
-                <TouchableOpacity style={styles.qtyBtn} onPress={() => updateMilkLimit(shift, 0.25)}>
-                    <Ionicons name="add" size={20} color="#555" />
-                </TouchableOpacity>
-            </View>
-        );
-    };
+    }, []);
 
     return (
-        <BackgroundWrapper>
+        <BackgroundWrapper activeWorkerId={activeWorkerId}>
             <SafeAreaView style={{ flex: 1 }}>
                 <View style={{ padding: 20 }}>
                     <Text style={styles.headerTitle}>Attendance Calendar</Text>
@@ -148,37 +187,14 @@ const CalendarScreen = () => {
                             textSectionTitleColor: '#333',
                             dayTextColor: '#333'
                         }}
-                        dayComponent={({ date, state }) => {
-                            const dateStr = date.dateString;
-                            const status = (activeWorker && activeWorker.attendance && activeWorker.attendance[dateStr]) || {};
-                            // Safe date parsing
-                            const dateObj = new Date(dateStr);
-                            const isSunday = dateObj.getDay() === 0;
-                            const isDisabled = state === 'disabled' || (isSunday && (!activeWorker || !activeWorker.includeSundays));
-
-                            return (
-                                <TouchableOpacity
-                                    style={[styles.dayContainer, isDisabled && styles.disabledDay]}
-                                    onPress={() => !isDisabled && handleDayPress(date)}
-                                    disabled={isDisabled}
-                                >
-                                    <Text style={[
-                                        styles.dayText,
-                                        isSunday && styles.sundayText,
-                                        state === 'disabled' && styles.disabledText,
-                                        state === 'today' && styles.todayText
-                                    ]}>
-                                        {date.day}
-                                    </Text>
-                                    {!isSunday && (
-                                        <View style={styles.indicatorRow}>
-                                            {activeWorker.shifts.morning && <View style={[styles.indicator, renderIndicator(status.morning)]} />}
-                                            {activeWorker.shifts.evening && <View style={[styles.indicator, renderIndicator(status.evening)]} />}
-                                        </View>
-                                    )}
-                                </TouchableOpacity>
-                            );
-                        }}
+                        dayComponent={(props) => (
+                            <DayComponent
+                                {...props}
+                                activeWorker={activeWorker}
+                                handleDayPress={handleDayPress}
+                                renderIndicator={renderIndicator}
+                            />
+                        )}
                     />
 
                     {/* Manual Legend */}
@@ -227,22 +243,19 @@ const CalendarScreen = () => {
                                         <Ionicons name="sunny-outline" size={20} color="#FFA000" />
                                         <Text style={styles.shiftLabel}>Morning</Text>
                                     </View>
-                                    {isMilk ? renderMilkControls('morning') : (
-                                        <View style={styles.toggleGroup}>
-                                            <TouchableOpacity
-                                                style={[styles.toggleBtn, currentStatus.morning === false && styles.toggleSelectedRed]}
-                                                onPress={() => setStatus('morning', currentStatus.morning === false ? undefined : false)}
-                                            >
-                                                <Text style={[styles.toggleText, currentStatus.morning === false && styles.textWhite]}>A</Text>
-                                            </TouchableOpacity>
-
-                                            <TouchableOpacity
-                                                style={[styles.toggleBtn, currentStatus.morning === true && styles.toggleSelectedGreen]}
-                                                onPress={() => setStatus('morning', currentStatus.morning === true ? undefined : true)}
-                                            >
-                                                <Text style={[styles.toggleText, currentStatus.morning === true && styles.textWhite]}>P</Text>
-                                            </TouchableOpacity>
-                                        </View>
+                                    {isMilk ? (
+                                        <MilkControls
+                                            shift="morning"
+                                            currentStatus={currentStatus}
+                                            activeWorker={activeWorker}
+                                            updateMilkLimit={updateMilkLimit}
+                                        />
+                                    ) : (
+                                        <AttendanceToggles
+                                            shift="morning"
+                                            currentStatus={currentStatus}
+                                            setStatus={setStatus}
+                                        />
                                     )}
                                 </View>
                             )}
@@ -254,22 +267,19 @@ const CalendarScreen = () => {
                                         <Ionicons name="moon-outline" size={20} color="#3F51B5" />
                                         <Text style={styles.shiftLabel}>Evening</Text>
                                     </View>
-                                    {isMilk ? renderMilkControls('evening') : (
-                                        <View style={styles.toggleGroup}>
-                                            <TouchableOpacity
-                                                style={[styles.toggleBtn, currentStatus.evening === false && styles.toggleSelectedRed]}
-                                                onPress={() => setStatus('evening', currentStatus.evening === false ? undefined : false)}
-                                            >
-                                                <Text style={[styles.toggleText, currentStatus.evening === false && styles.textWhite]}>A</Text>
-                                            </TouchableOpacity>
-
-                                            <TouchableOpacity
-                                                style={[styles.toggleBtn, currentStatus.evening === true && styles.toggleSelectedGreen]}
-                                                onPress={() => setStatus('evening', currentStatus.evening === true ? undefined : true)}
-                                            >
-                                                <Text style={[styles.toggleText, currentStatus.evening === true && styles.textWhite]}>P</Text>
-                                            </TouchableOpacity>
-                                        </View>
+                                    {isMilk ? (
+                                        <MilkControls
+                                            shift="evening"
+                                            currentStatus={currentStatus}
+                                            activeWorker={activeWorker}
+                                            updateMilkLimit={updateMilkLimit}
+                                        />
+                                    ) : (
+                                        <AttendanceToggles
+                                            shift="evening"
+                                            currentStatus={currentStatus}
+                                            setStatus={setStatus}
+                                        />
                                     )}
                                 </View>
                             )}
