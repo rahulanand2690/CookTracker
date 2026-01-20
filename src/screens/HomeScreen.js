@@ -1,5 +1,5 @@
-import React, { useContext } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ImageBackground } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ImageBackground, Modal } from 'react-native';
+import React, { useContext, useState } from 'react';
 import { AppContext } from '../context/AppContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -51,19 +51,76 @@ const StatusText = ({ status, isMilk, activeWorker }) => {
     return <Text style={[styles.shiftStatus, { color: '#999' }]}>Not marked yet</Text>;
 };
 
-const MilkControls = ({ shift, todayStatus, activeWorker, updateMilkLimit }) => {
+const MilkAttendanceSelector = ({ shift, todayStatus, activeWorker, toggleShift, onAdjust }) => {
+    const status = todayStatus[shift];
+    const isUnmarked = status === undefined;
+    const isPresent = status === true || typeof status === 'number';
+    const isAbsent = status === false;
+
+    return (
+        <View style={styles.milkSelectorRow}>
+            <View style={styles.radioGroup}>
+                <TouchableOpacity
+                    style={[styles.radioBtn, isPresent && styles.radioPresent]}
+                    onPress={() => toggleShift(shift, true)}
+                >
+                    <Text style={[styles.radioText, isPresent && styles.textWhite]}>P</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.radioBtn, isAbsent && styles.radioAbsent]}
+                    onPress={() => toggleShift(shift, false)}
+                >
+                    <Text style={[styles.radioText, isAbsent && styles.textWhite]}>A</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.radioBtn, isUnmarked && styles.radioUnmarked]}
+                    onPress={() => toggleShift(shift, undefined)}
+                >
+                    <Text style={[styles.radioText, isUnmarked && styles.textWhite]}>U</Text>
+                </TouchableOpacity>
+            </View>
+            <TouchableOpacity style={styles.adjustBtn} onPress={() => onAdjust(shift)}>
+                <Ionicons name="options-outline" size={20} color="#7E57C2" />
+                <Text style={styles.adjustText}>Adjust</Text>
+            </TouchableOpacity>
+        </View>
+    );
+};
+
+const MilkAdjustmentModal = ({ visible, onClose, shift, todayStatus, activeWorker, updateMilkLimit }) => {
+    if (!shift) return null;
     const currentQty = typeof todayStatus[shift] === 'number' ? todayStatus[shift] : (todayStatus[shift] === true ? activeWorker.defaultLitre : 0);
 
     return (
-        <View style={styles.qtyControls}>
-            <TouchableOpacity style={styles.qtyBtn} onPress={() => updateMilkLimit(shift, -0.25)}>
-                <Ionicons name="remove" size={20} color="#555" />
+        <Modal animationType="slide" transparent={true} visible={visible} onRequestClose={onClose}>
+            <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onClose}>
+                <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+                    <Text style={styles.modalTitle}>Adjust Milk Quantity</Text>
+                    <Text style={styles.modalSub}>{shift.charAt(0).toUpperCase() + shift.slice(1)} Shift</Text>
+
+                    <View style={styles.popupQtyRow}>
+                        <TouchableOpacity style={styles.popupQtyBtn} onPress={() => updateMilkLimit(shift, -0.25)}>
+                            <Text style={styles.popupQtyBtnText}>-250ml</Text>
+                        </TouchableOpacity>
+
+                        <View style={styles.popupQtyDisplay}>
+                            <Text style={styles.popupQtyValue}>{currentQty}</Text>
+                            <Text style={styles.popupQtyUnit}>Litres</Text>
+                        </View>
+
+                        <TouchableOpacity style={styles.popupQtyBtn} onPress={() => updateMilkLimit(shift, 0.25)}>
+                            <Text style={styles.popupQtyBtnText}>+250ml</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    <Text style={styles.popupHint}>Default: {activeWorker.defaultLitre} L</Text>
+
+                    <TouchableOpacity style={styles.popupCloseBtn} onPress={onClose}>
+                        <Text style={styles.popupCloseBtnText}>Done</Text>
+                    </TouchableOpacity>
+                </View>
             </TouchableOpacity>
-            <Text style={styles.qtyText}>{currentQty} L</Text>
-            <TouchableOpacity style={styles.qtyBtn} onPress={() => updateMilkLimit(shift, 0.25)}>
-                <Ionicons name="add" size={20} color="#555" />
-            </TouchableOpacity>
-        </View>
+        </Modal>
     );
 };
 
@@ -77,15 +134,27 @@ const HomeScreen = () => {
 
     const isMilk = activeWorkerId === 'milk';
 
-    const toggleShift = React.useCallback((shift) => {
+    const [adjustModalVisible, setAdjustModalVisible] = useState(false);
+    const [editingShift, setEditingShift] = useState(null);
+
+    const toggleShift = React.useCallback((shift, forcedVal) => {
         let newVal;
-        if (todayStatus[shift] === undefined) newVal = true;
-        else if (todayStatus[shift] === true) newVal = false;
-        else newVal = undefined;
+        if (forcedVal !== undefined) {
+            newVal = forcedVal;
+        } else {
+            if (todayStatus[shift] === undefined) newVal = true;
+            else if (todayStatus[shift] === true) newVal = false;
+            else newVal = undefined;
+        }
 
         const newStatus = { ...todayStatus, [shift]: newVal };
         updateAttendance(dateStr, newStatus);
     }, [todayStatus, dateStr, updateAttendance]);
+
+    const handleAdjust = (shift) => {
+        setEditingShift(shift);
+        setAdjustModalVisible(true);
+    };
 
     const updateMilkLimit = React.useCallback((shift, change) => {
         let currentQty;
@@ -176,11 +245,12 @@ const HomeScreen = () => {
                             </View>
 
                             {isMilk ? (
-                                <MilkControls
+                                <MilkAttendanceSelector
                                     shift="morning"
                                     todayStatus={todayStatus}
                                     activeWorker={activeWorker}
-                                    updateMilkLimit={updateMilkLimit}
+                                    toggleShift={toggleShift}
+                                    onAdjust={handleAdjust}
                                 />
                             ) : (
                                 <View style={[styles.checkCircle, todayStatus.morning === true && styles.completedCircle, todayStatus.morning === false && styles.absentCircle]}>
@@ -205,11 +275,12 @@ const HomeScreen = () => {
                                 <StatusText status={todayStatus.evening} isMilk={isMilk} activeWorker={activeWorker} />
                             </View>
                             {isMilk ? (
-                                <MilkControls
+                                <MilkAttendanceSelector
                                     shift="evening"
                                     todayStatus={todayStatus}
                                     activeWorker={activeWorker}
-                                    updateMilkLimit={updateMilkLimit}
+                                    toggleShift={toggleShift}
+                                    onAdjust={handleAdjust}
                                 />
                             ) : (
                                 <View style={[styles.checkCircle, todayStatus.evening === true && styles.completedCircle, todayStatus.evening === false && styles.absentCircle]}>
@@ -222,6 +293,17 @@ const HomeScreen = () => {
 
                     {!activeWorker.shifts.morning && !activeWorker.shifts.evening && (
                         <Text style={styles.noShiftsText}>No shifts enabled.</Text>
+                    )}
+
+                    {isMilk && (
+                        <MilkAdjustmentModal
+                            visible={adjustModalVisible}
+                            onClose={() => setAdjustModalVisible(false)}
+                            shift={editingShift}
+                            todayStatus={todayStatus}
+                            activeWorker={activeWorker}
+                            updateMilkLimit={updateMilkLimit}
+                        />
                     )}
 
                 </ScrollView>
@@ -371,6 +453,129 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 10
+    },
+    milkSelectorRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12
+    },
+    radioGroup: {
+        flexDirection: 'row',
+        gap: 6,
+        backgroundColor: '#f0f0f0',
+        padding: 4,
+        borderRadius: 20
+    },
+    radioBtn: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'transparent'
+    },
+    radioText: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: '#666'
+    },
+    radioPresent: { backgroundColor: '#4CAF50' },
+    radioAbsent: { backgroundColor: '#EF5350' },
+    radioUnmarked: { backgroundColor: '#999' },
+    textWhite: { color: '#fff' },
+    adjustBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingVertical: 6,
+        paddingHorizontal: 10,
+        borderRadius: 12,
+        backgroundColor: '#F3E5F5',
+        borderWidth: 1,
+        borderColor: '#7E57C2'
+    },
+    adjustText: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        color: '#7E57C2'
+    },
+    // Popup Styles
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20
+    },
+    modalContent: {
+        backgroundColor: '#fff',
+        borderRadius: 24,
+        padding: 25,
+        width: '100%',
+        maxWidth: 340,
+        alignItems: 'center',
+        elevation: 5
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#333'
+    },
+    modalSub: {
+        fontSize: 14,
+        color: '#7E57C2',
+        fontWeight: '600',
+        marginBottom: 20
+    },
+    popupQtyRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        width: '100%',
+        marginVertical: 10
+    },
+    popupQtyBtn: {
+        backgroundColor: '#F5F5F5',
+        paddingHorizontal: 15,
+        paddingVertical: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#eee'
+    },
+    popupQtyBtnText: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: '#333'
+    },
+    popupQtyDisplay: {
+        alignItems: 'center'
+    },
+    popupQtyValue: {
+        fontSize: 36,
+        fontWeight: 'bold',
+        color: '#333'
+    },
+    popupQtyUnit: {
+        fontSize: 14,
+        color: '#666'
+    },
+    popupHint: {
+        fontSize: 12,
+        color: '#999',
+        marginTop: 15
+    },
+    popupCloseBtn: {
+        marginTop: 25,
+        backgroundColor: '#7E57C2',
+        width: '100%',
+        paddingVertical: 15,
+        borderRadius: 15,
+        alignItems: 'center'
+    },
+    popupCloseBtnText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold'
     },
     qtyBtn: {
         width: 32,
