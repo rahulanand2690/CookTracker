@@ -478,14 +478,18 @@ const styles = StyleSheet.create({
         paddingTop: 12
     },
     simpleRadio: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+        width: 30,
+        height: 30,
+        borderRadius: 15,
         borderWidth: 2,
         borderColor: '#ddd',
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: '#f5f5f5'
+    },
+    radioPresent: {
+        backgroundColor: '#4CAF50',
+        borderColor: '#4CAF50'
     },
     milkShiftCard: {
         padding: 15,
