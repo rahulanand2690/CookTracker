@@ -84,7 +84,7 @@ const PaymentsScreen = () => {
                         </View>
                     </View>
                     <View style={styles.controlGroup}>
-                        <Text style={styles.label}>Base Salary</Text>
+                        <Text style={styles.label}>Monthly Salary</Text>
                         <View style={[styles.inputContainer, styles.editableInput]}>
                             <Text style={styles.currencySymbol}>₹</Text>
                             <TextInput
