@@ -53,36 +53,37 @@ const StatusText = ({ status, isMilk, activeWorker }) => {
 
 const MilkAttendanceSelector = ({ shift, todayStatus, activeWorker, toggleShift, onAdjust }) => {
     const status = todayStatus[shift];
-    const isUnmarked = status === undefined;
     const isPresent = status === true || typeof status === 'number';
-    const isAbsent = status === false;
+
+    const currentQty = typeof status === 'number' ? status : (status === true ? activeWorker.defaultLitre : 0);
 
     return (
-        <View style={styles.milkSelectorRow}>
-            <View style={styles.radioGroup}>
-                <TouchableOpacity
-                    style={[styles.radioBtn, isPresent && styles.radioPresent]}
-                    onPress={() => toggleShift(shift, true)}
-                >
-                    <Text style={[styles.radioText, isPresent && styles.textWhite]}>P</Text>
+        <View style={styles.milkCardContent}>
+            <View style={styles.milkInfoRow}>
+                <View style={[styles.shiftIconContainer, { backgroundColor: shift === 'morning' ? '#FFF3E0' : '#E8EAF6' }]}>
+                    <Ionicons name={shift === 'morning' ? "sunny" : "moon"} size={24} color={shift === 'morning' ? "#FFA000" : "#3F51B5"} />
+                </View>
+                <View style={styles.milkTextCol}>
+                    <Text style={styles.shiftTitle}>{shift.charAt(0).toUpperCase() + shift.slice(1)}</Text>
+                    <Text style={[styles.shiftStatus, { color: isPresent ? '#4CAF50' : '#999' }]}>
+                        {isPresent ? `${currentQty} Litres` : 'Not marked'}
+                    </Text>
+                </View>
+            </View>
+
+            <View style={styles.milkActionRow}>
+                <TouchableOpacity style={styles.adjustBtn} onPress={() => onAdjust(shift)}>
+                    <Ionicons name="options-outline" size={20} color="#7E57C2" />
+                    <Text style={styles.adjustText}>Adjust</Text>
                 </TouchableOpacity>
+
                 <TouchableOpacity
-                    style={[styles.radioBtn, isAbsent && styles.radioAbsent]}
-                    onPress={() => toggleShift(shift, false)}
+                    style={[styles.simpleRadio, isPresent && styles.radioPresent]}
+                    onPress={() => toggleShift(shift, isPresent ? undefined : true)}
                 >
-                    <Text style={[styles.radioText, isAbsent && styles.textWhite]}>A</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={[styles.radioBtn, isUnmarked && styles.radioUnmarked]}
-                    onPress={() => toggleShift(shift, undefined)}
-                >
-                    <Text style={[styles.radioText, isUnmarked && styles.textWhite]}>U</Text>
+                    {isPresent && <Ionicons name="checkmark" size={16} color="#fff" />}
                 </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.adjustBtn} onPress={() => onAdjust(shift)}>
-                <Ionicons name="options-outline" size={20} color="#7E57C2" />
-                <Text style={styles.adjustText}>Adjust</Text>
-            </TouchableOpacity>
         </View>
     );
 };
@@ -232,18 +233,7 @@ const HomeScreen = () => {
 
                     {/* Morning Card */}
                     {activeWorker.shifts.morning && (
-                        <TouchableOpacity
-                            style={styles.shiftCard}
-                            onPress={() => !isMilk && toggleShift('morning')}
-                        >
-                            <View style={[styles.shiftIconContainer, { backgroundColor: '#FFF3E0' }]}>
-                                <Ionicons name="sunny" size={24} color="#FFA000" />
-                            </View>
-                            <View style={styles.shiftInfo}>
-                                <Text style={styles.shiftTitle}>Morning</Text>
-                                <StatusText status={todayStatus.morning} isMilk={isMilk} activeWorker={activeWorker} />
-                            </View>
-
+                        <View style={[styles.shiftCard, isMilk && styles.milkShiftCard]}>
                             {isMilk ? (
                                 <MilkAttendanceSelector
                                     shift="morning"
@@ -253,27 +243,29 @@ const HomeScreen = () => {
                                     onAdjust={handleAdjust}
                                 />
                             ) : (
-                                <View style={[styles.checkCircle, todayStatus.morning === true && styles.completedCircle, todayStatus.morning === false && styles.absentCircle]}>
-                                    {todayStatus.morning === true && <Ionicons name="checkmark" size={16} color="#fff" />}
-                                    {todayStatus.morning === false && <Ionicons name="close" size={16} color="#fff" />}
-                                </View>
+                                <TouchableOpacity
+                                    style={styles.cardInternalLayout}
+                                    onPress={() => toggleShift('morning')}
+                                >
+                                    <View style={[styles.shiftIconContainer, { backgroundColor: '#FFF3E0' }]}>
+                                        <Ionicons name="sunny" size={24} color="#FFA000" />
+                                    </View>
+                                    <View style={styles.shiftInfo}>
+                                        <Text style={styles.shiftTitle}>Morning</Text>
+                                        <StatusText status={todayStatus.morning} isMilk={isMilk} activeWorker={activeWorker} />
+                                    </View>
+                                    <View style={[styles.checkCircle, todayStatus.morning === true && styles.completedCircle, todayStatus.morning === false && styles.absentCircle]}>
+                                        {todayStatus.morning === true && <Ionicons name="checkmark" size={16} color="#fff" />}
+                                        {todayStatus.morning === false && <Ionicons name="close" size={16} color="#fff" />}
+                                    </View>
+                                </TouchableOpacity>
                             )}
-                        </TouchableOpacity>
+                        </View>
                     )}
 
                     {/* Evening Card */}
                     {activeWorker.shifts.evening && (
-                        <TouchableOpacity
-                            style={styles.shiftCard}
-                            onPress={() => !isMilk && toggleShift('evening')}
-                        >
-                            <View style={[styles.shiftIconContainer, { backgroundColor: '#E8EAF6' }]}>
-                                <Ionicons name="moon" size={20} color="#3F51B5" />
-                            </View>
-                            <View style={styles.shiftInfo}>
-                                <Text style={styles.shiftTitle}>Evening</Text>
-                                <StatusText status={todayStatus.evening} isMilk={isMilk} activeWorker={activeWorker} />
-                            </View>
+                        <View style={[styles.shiftCard, isMilk && styles.milkShiftCard]}>
                             {isMilk ? (
                                 <MilkAttendanceSelector
                                     shift="evening"
@@ -283,12 +275,24 @@ const HomeScreen = () => {
                                     onAdjust={handleAdjust}
                                 />
                             ) : (
-                                <View style={[styles.checkCircle, todayStatus.evening === true && styles.completedCircle, todayStatus.evening === false && styles.absentCircle]}>
-                                    {todayStatus.evening === true && <Ionicons name="checkmark" size={16} color="#fff" />}
-                                    {todayStatus.evening === false && <Ionicons name="close" size={16} color="#fff" />}
-                                </View>
+                                <TouchableOpacity
+                                    style={styles.cardInternalLayout}
+                                    onPress={() => toggleShift('evening')}
+                                >
+                                    <View style={[styles.shiftIconContainer, { backgroundColor: '#E8EAF6' }]}>
+                                        <Ionicons name="moon" size={20} color="#3F51B5" />
+                                    </View>
+                                    <View style={styles.shiftInfo}>
+                                        <Text style={styles.shiftTitle}>Evening</Text>
+                                        <StatusText status={todayStatus.evening} isMilk={isMilk} activeWorker={activeWorker} />
+                                    </View>
+                                    <View style={[styles.checkCircle, todayStatus.evening === true && styles.completedCircle, todayStatus.evening === false && styles.absentCircle]}>
+                                        {todayStatus.evening === true && <Ionicons name="checkmark" size={16} color="#fff" />}
+                                        {todayStatus.evening === false && <Ionicons name="close" size={16} color="#fff" />}
+                                    </View>
+                                </TouchableOpacity>
                             )}
-                        </TouchableOpacity>
+                        </View>
                     )}
 
                     {!activeWorker.shifts.morning && !activeWorker.shifts.evening && (
@@ -454,48 +458,57 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 10
     },
-    milkSelectorRow: {
+    milkCardContent: {
+        width: '100%'
+    },
+    milkInfoRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12
+        marginBottom: 15
     },
-    radioGroup: {
+    milkTextCol: {
+        flex: 1
+    },
+    milkActionRow: {
         flexDirection: 'row',
-        gap: 6,
-        backgroundColor: '#f0f0f0',
-        padding: 4,
-        borderRadius: 20
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderTopWidth: 1,
+        borderTopColor: '#f0f0f0',
+        paddingTop: 12
     },
-    radioBtn: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+    simpleRadio: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        borderWidth: 2,
+        borderColor: '#ddd',
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: 'transparent'
+        backgroundColor: '#f5f5f5'
     },
-    radioText: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        color: '#666'
+    milkShiftCard: {
+        padding: 15,
+        minHeight: 120
     },
-    radioPresent: { backgroundColor: '#4CAF50' },
-    radioAbsent: { backgroundColor: '#EF5350' },
-    radioUnmarked: { backgroundColor: '#999' },
-    textWhite: { color: '#fff' },
+    cardInternalLayout: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1
+    },
     adjustBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 4,
-        paddingVertical: 6,
-        paddingHorizontal: 10,
+        gap: 6,
+        paddingVertical: 8,
+        paddingHorizontal: 15,
         borderRadius: 12,
         backgroundColor: '#F3E5F5',
         borderWidth: 1,
         borderColor: '#7E57C2'
     },
     adjustText: {
-        fontSize: 12,
+        fontSize: 14,
         fontWeight: 'bold',
         color: '#7E57C2'
     },
