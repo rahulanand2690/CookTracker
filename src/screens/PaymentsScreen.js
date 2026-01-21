@@ -134,7 +134,7 @@ const PaymentsScreen = () => {
 
 
 
-    const monthName = selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    const monthName = selectedDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 
     return (
         <BackgroundWrapper activeWorkerId={activeWorkerId}>
