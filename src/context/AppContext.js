@@ -28,6 +28,7 @@ export const AppProvider = ({ children }) => {
     });
     const [activeWorkerId, setActiveWorkerId] = useState('cook');
     const [isLoading, setIsLoading] = useState(true);
+    const [hasSeenTutorial, setHasSeenTutorial] = useState(false);
 
     useEffect(() => {
         loadData();
@@ -64,6 +65,11 @@ export const AppProvider = ({ children }) => {
                     });
                     setWorkers(migrated);
                 }
+            }
+
+            const tutorialFlag = await AsyncStorage.getItem('tracker_has_seen_tutorial');
+            if (tutorialFlag === 'true') {
+                setHasSeenTutorial(true);
             }
         } catch (e) {
             console.error('Failed to load data', e);
@@ -106,6 +112,11 @@ export const AppProvider = ({ children }) => {
             }
         };
         saveWorkers(newWorkers);
+    };
+
+    const finishTutorial = async () => {
+        setHasSeenTutorial(true);
+        await AsyncStorage.setItem('tracker_has_seen_tutorial', 'true');
     };
 
     const addPayment = (amount, date) => {
@@ -269,7 +280,9 @@ export const AppProvider = ({ children }) => {
             updateWorkerSettings,
             addPayment,
             getStatsForMonth,
-            isLoading
+            isLoading,
+            hasSeenTutorial,
+            finishTutorial
         }}>
             {children}
         </AppContext.Provider>

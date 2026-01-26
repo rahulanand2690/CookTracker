@@ -3,6 +3,7 @@ import React, { useContext, useState } from 'react';
 import { AppContext } from '../context/AppContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import TutorialModal from '../components/TutorialModal';
 
 // Using the newly moved asset
 const MILK_BG = require('../../assets/images/milk_bg.jpg');
@@ -126,7 +127,7 @@ const MilkAdjustmentModal = ({ visible, onClose, shift, todayStatus, activeWorke
 };
 
 const HomeScreen = () => {
-    const { activeWorkerId, setActiveWorkerId, activeWorker, updateAttendance, getStatsForMonth, WORKER_TYPES } = useContext(AppContext);
+    const { activeWorkerId, setActiveWorkerId, activeWorker, updateAttendance, getStatsForMonth, WORKER_TYPES, hasSeenTutorial, finishTutorial, isLoading } = useContext(AppContext);
     const now = new Date();
     const dateStr = now.toISOString().split('T')[0];
     const stats = getStatsForMonth(now.getFullYear(), now.getMonth() + 1);
@@ -309,6 +310,11 @@ const HomeScreen = () => {
                             updateMilkLimit={updateMilkLimit}
                         />
                     )}
+
+                    <TutorialModal
+                        visible={!hasSeenTutorial && !isLoading}
+                        onFinish={finishTutorial}
+                    />
 
                 </ScrollView>
             </SafeAreaView>
